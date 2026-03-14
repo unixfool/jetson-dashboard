@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Jetson Dashboard — Full-Stack Monitoring for NVIDIA Jetson</title>
+  <meta name="description" content="Real-time web dashboard for NVIDIA Jetson devices. Monitor CPU, GPU, memory, camera, ROS2 and more. Open source, Docker-based, HTTPS ready."/>
+  <meta property="og:title" content="Jetson Dashboard"/>
+  <meta property="og:description" content="Full-stack monitoring and management system for NVIDIA Jetson devices."/>
+  <meta property="og:type" content="website"/>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@300;400;500&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #060810;
+      --surface:   #0c1018;
+      --card:      #111620;
+      --border:    #1e2535;
+      --border-hi: #2a3550;
+      --text:      #e2e8f8;
+      --dim:       #6b7899;
+      --muted:     #3a4560;
+      --green:     #00e5a0;
+      --cyan:      #38bdf8;
+      --blue:      #3b82f6;
+      --purple:    #a78bfa;
+      --yellow:    #fbbf24;
+      --red:       #f87171;
+      --glow-g:    rgba(0,229,160,0.15);
+      --glow-c:    rgba(56,189,248,0.15);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+
+    /* ── Noise texture overlay ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    /* ── Grid background ── */
+    .grid-bg {
+      background-image:
+        linear-gradient(rgba(56,189,248,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(56,189,248,0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+    }
+
+    /* ── Nav ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 2.5rem;
+      background: rgba(6,8,16,0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      text-decoration: none;
+    }
+
+    .nav-logo-icon {
+      width: 32px; height: 32px;
+      border: 1px solid rgba(56,189,248,0.4);
+      border-radius: 6px;
+      background: rgba(56,189,248,0.08);
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .nav-logo-icon svg { width: 16px; height: 16px; color: var(--cyan); }
+
+    .nav-title {
+      font-family: 'Orbitron', monospace;
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: var(--cyan);
+      letter-spacing: 0.15em;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .nav-link {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--dim);
+      text-decoration: none;
+      padding: 0.4rem 0.9rem;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+
+    .nav-link:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+
+    .nav-cta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--bg);
+      background: var(--cyan);
+      text-decoration: none;
+      padding: 0.4rem 1rem;
+      border-radius: 4px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    .nav-cta:hover { background: #7dd3fc; transform: translateY(-1px); }
+
+    /* ── Hero ── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 8rem 2rem 6rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Radial glow backgrounds */
+    .hero::after {
+      content: '';
+      position: absolute;
+      top: 20%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 800px; height: 400px;
+      background: radial-gradient(ellipse, rgba(56,189,248,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--green);
+      border: 1px solid rgba(0,229,160,0.25);
+      background: rgba(0,229,160,0.06);
+      padding: 0.35rem 0.9rem;
+      border-radius: 999px;
+      letter-spacing: 0.1em;
+      margin-bottom: 2rem;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    .hero-badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s infinite;
+    }
+
+    .hero-title {
+      font-family: 'Orbitron', monospace;
+      font-size: clamp(2.8rem, 7vw, 6rem);
+      font-weight: 900;
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      margin-bottom: 1.5rem;
+      animation: fadeUp 0.6s 0.1s ease both;
+    }
+
+    .hero-title .line1 { display: block; color: var(--text); }
+    .hero-title .line2 {
+      display: block;
+      background: linear-gradient(135deg, var(--cyan) 0%, var(--blue) 50%, var(--purple) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      font-size: 1.15rem;
+      color: var(--dim);
+      max-width: 560px;
+      margin: 0 auto 2.5rem;
+      line-height: 1.7;
+      font-weight: 400;
+      animation: fadeUp 0.6s 0.2s ease both;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 4rem;
+      animation: fadeUp 0.6s 0.3s ease both;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--bg);
+      background: var(--cyan);
+      padding: 0.75rem 1.75rem;
+      border-radius: 6px;
+      text-decoration: none;
+      transition: all 0.2s;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-primary:hover {
+      background: #7dd3fc;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(56,189,248,0.3);
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text);
+      background: transparent;
+      padding: 0.75rem 1.75rem;
+      border-radius: 6px;
+      text-decoration: none;
+      border: 1px solid var(--border-hi);
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--cyan);
+      color: var(--cyan);
+      background: rgba(56,189,248,0.05);
+    }
+
+    /* ── Terminal preview ── */
+    .terminal {
+      width: 100%;
+      max-width: 680px;
+      border-radius: 10px;
+      border: 1px solid var(--border-hi);
+      background: var(--surface);
+      overflow: hidden;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(56,189,248,0.05);
+      animation: fadeUp 0.7s 0.4s ease both;
+      text-align: left;
+    }
+
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .terminal-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+    }
+
+    .terminal-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--dim);
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .terminal-body {
+      padding: 1.25rem 1.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      line-height: 1.9;
+    }
+
+    .t-dim    { color: var(--dim); }
+    .t-green  { color: var(--green); }
+    .t-cyan   { color: var(--cyan); }
+    .t-yellow { color: var(--yellow); }
+    .t-purple { color: var(--purple); }
+    .t-red    { color: var(--red); }
+
+    .t-prompt::before { content: '$ '; color: var(--green); }
+    .t-comment::before { content: '# '; color: var(--muted); }
+    .t-line { display: block; }
+
+    /* ── Section ── */
+    section {
+      position: relative;
+      z-index: 1;
+    }
+
+    .section-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 6rem 2rem;
+    }
+
+    .section-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      color: var(--cyan);
+      text-transform: uppercase;
+      margin-bottom: 0.75rem;
+    }
+
+    .section-title {
+      font-family: 'Orbitron', monospace;
+      font-size: clamp(1.6rem, 3.5vw, 2.5rem);
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 1rem;
+      line-height: 1.2;
+    }
+
+    .section-desc {
+      font-size: 1rem;
+      color: var(--dim);
+      max-width: 520px;
+      line-height: 1.7;
+    }
+
+    /* ── Stats bar ── */
+    .stats-bar {
+      display: flex;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--surface);
+    }
+
+    .stat-item {
+      flex: 1;
+      padding: 1.75rem 1.5rem;
+      border-right: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .stat-item:last-child { border-right: none; }
+
+    .stat-value {
+      font-family: 'Orbitron', monospace;
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--cyan);
+      display: block;
+    }
+
+    .stat-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-top: 0.25rem;
+      display: block;
+    }
+
+    /* ── Feature grid ── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .feature-card {
+      background: var(--card);
+      padding: 1.75rem;
+      transition: background 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(56,189,248,0.2), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .feature-card:hover { background: var(--surface); }
+    .feature-card:hover::before { opacity: 1; }
+
+    .feature-icon {
+      width: 38px; height: 38px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 1rem;
+      font-size: 1.1rem;
+    }
+
+    .feature-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+
+    .feature-desc {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--dim);
+      line-height: 1.7;
+    }
+
+    /* ── Compatibility table ── */
+    .compat-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+    }
+
+    .compat-table th {
+      text-align: left;
+      padding: 0.75rem 1.25rem;
+      color: var(--dim);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .compat-table td {
+      padding: 0.9rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .compat-table tr:last-child td { border-bottom: none; }
+    .compat-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .badge-ok   { color: var(--green); font-size: 0.7rem; }
+    .badge-info { color: var(--cyan);  font-size: 0.7rem; }
+
+    /* ── Architecture diagram ── */
+    .arch-diagram {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 1.5rem;
+      align-items: center;
+      max-width: 800px;
+      margin: 3rem auto 0;
+    }
+
+    .arch-box {
+      border: 1px solid var(--border-hi);
+      border-radius: 10px;
+      padding: 1.5rem;
+      background: var(--card);
+    }
+
+    .arch-box-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      color: var(--cyan);
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+
+    .arch-item {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--dim);
+      padding: 0.3rem 0;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .arch-item:last-child { border-bottom: none; }
+    .arch-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+
+    .arch-arrow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.6rem;
+      color: var(--muted);
+    }
+
+    .arch-arrow svg { color: var(--border-hi); }
+
+    /* ── Quick start ── */
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 60px 1fr;
+      background: var(--card);
+      transition: background 0.2s;
+    }
+
+    .step:hover { background: var(--surface); }
+
+    .step-num {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 1.5rem 0;
+      font-family: 'Orbitron', monospace;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .step-content {
+      padding: 1.5rem 1.5rem 1.5rem 0;
+      border-left: 1px solid var(--border);
+    }
+
+    .step-title {
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+
+    .step-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--green);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.6rem 0.9rem;
+      margin-top: 0.5rem;
+      display: block;
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    .step-note {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--dim);
+      margin-top: 0.4rem;
+    }
+
+    /* ── CTA section ── */
+    .cta-section {
+      text-align: center;
+      padding: 6rem 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-section::before {
+      content: '';
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 600px; height: 300px;
+      background: radial-gradient(ellipse, rgba(0,229,160,0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .cta-title {
+      font-family: 'Orbitron', monospace;
+      font-size: clamp(1.5rem, 3vw, 2.2rem);
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 1rem;
+    }
+
+    .cta-desc {
+      font-size: 0.95rem;
+      color: var(--dim);
+      margin-bottom: 2.5rem;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem 2.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .footer-logo {
+      font-family: 'Orbitron', monospace;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--cyan);
+      letter-spacing: 0.1em;
+    }
+
+    .footer-copy {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--muted);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 1.5rem;
+    }
+
+    .footer-link {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--dim);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer-link:hover { color: var(--cyan); }
+
+    /* ── Divider ── */
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border-hi), transparent);
+      margin: 0 2rem;
+    }
+
+    /* ── Animations ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
+    }
+
+    .cursor::after {
+      content: '▋';
+      animation: blink 1s step-end infinite;
+      color: var(--green);
+      font-size: 0.8em;
+    }
+
+    /* ── Scroll reveal ── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      nav { padding: 1rem 1.25rem; }
+      .nav-links { display: none; }
+      .stats-bar { flex-direction: column; }
+      .stat-item { border-right: none; border-bottom: 1px solid var(--border); }
+      .stat-item:last-child { border-bottom: none; }
+      .arch-diagram { grid-template-columns: 1fr; }
+      .arch-arrow { display: none; }
+      footer { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body class="grid-bg">
+
+  <!-- NAV -->
+  <nav>
+    <a href="#" class="nav-logo">
+      <div class="nav-logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="3" width="20" height="14" rx="2"/>
+          <path d="M8 21h8M12 17v4"/>
+          <path d="M7 8h.01M12 8h.01M17 8h.01"/>
+        </svg>
+      </div>
+      <span class="nav-title">JETSON DASHBOARD</span>
+    </a>
+    <div class="nav-links">
+      <a href="#features"  class="nav-link">Features</a>
+      <a href="#quickstart" class="nav-link">Quick Start</a>
+      <a href="#compat"    class="nav-link">Compatibility</a>
+      <a href="https://github.com/unixfool/jetson-dashboard" class="nav-cta" target="_blank">GitHub →</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-badge">
+      <span>v1.0.0 — Open Source</span>
+    </div>
+    <h1 class="hero-title">
+      <span class="line1">Monitor Your</span>
+      <span class="line2">Jetson Device</span>
+    </h1>
+    <p class="hero-sub">
+      Full-stack web dashboard for NVIDIA Jetson. Real-time metrics, camera streaming, ROS2 monitoring, Docker management and more — all in one place.
+    </p>
+    <div class="hero-actions">
+      <a href="https://github.com/unixfool/jetson-dashboard" class="btn-primary" target="_blank">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        View on GitHub
+      </a>
+      <a href="#quickstart" class="btn-secondary">
+        Quick Start →
+      </a>
+    </div>
+
+    <!-- Terminal -->
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="terminal-dot" style="background:#f87171"></div>
+        <div class="terminal-dot" style="background:#fbbf24"></div>
+        <div class="terminal-dot" style="background:#34d399"></div>
+        <span class="terminal-title">jetbot@jetson-nano ~ jetson-dashboard</span>
+      </div>
+      <div class="terminal-body">
+        <span class="t-line t-dim"># Clone and start</span>
+        <span class="t-line t-prompt t-green">git clone https://github.com/unixfool/jetson-dashboard</span>
+        <span class="t-line t-prompt t-green">cd jetson-dashboard && cp env.example .env</span>
+        <span class="t-line t-prompt t-green">docker compose up -d --build</span>
+        <span class="t-line"> </span>
+        <span class="t-line t-dim"># Output</span>
+        <span class="t-line"><span class="t-green">✔</span> <span class="t-dim">Container</span> jetson-dashboard-backend   <span class="t-green">Started</span></span>
+        <span class="t-line"><span class="t-green">✔</span> <span class="t-dim">Container</span> jetson-dashboard-frontend  <span class="t-green">Started</span></span>
+        <span class="t-line"> </span>
+        <span class="t-line"><span class="t-cyan">→</span> Dashboard ready at <span class="t-yellow">https://192.168.1.138:8443</span><span class="cursor"></span></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section>
+    <div class="section-inner" style="padding-top:0; padding-bottom:4rem;">
+      <div class="stats-bar reveal">
+        <div class="stat-item">
+          <span class="stat-value">17</span>
+          <span class="stat-label">Pages & Features</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value">79</span>
+          <span class="stat-label">Source Files</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value">1.5s</span>
+          <span class="stat-label">Metrics Interval</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value">HTTPS</span>
+          <span class="stat-label">SSL Auto-generated</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value">MIT</span>
+          <span class="stat-label">Open Source</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- FEATURES -->
+  <section id="features">
+    <div class="section-inner">
+      <div class="reveal">
+        <div class="section-label">What's included</div>
+        <h2 class="section-title">Everything your Jetson needs</h2>
+        <p class="section-desc">A complete monitoring and management suite built specifically for NVIDIA Jetson devices.</p>
+      </div>
+
+      <div class="features-grid reveal" style="margin-top: 3rem;">
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:rgba(56,189,248,0.1)">📊</div>
+          <div class="feature-title">Real-time Metrics</div>
+          <div class="feature-desc">CPU cores, GPU load & memory, RAM, swap, storage, network I/O and 9 thermal sensors — all streamed via WebSocket every 1.5 seconds.</div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:rgba(0,229,160,0.1)">🎮</div>
+          <div class="feature-title">Hardware Control</div>
+          <div class="feature-desc">Fan PWM control (0–255), jetson_clocks enable/disable, and nvpmodel power mode switching (MaxN, 5W, 10W) — all from the browser.</div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:rgba(167,139,250,0.1)">📷</div>
+          <div class="feature-title">Camera Live Stream</div>
+          <div class="feature-desc">IMX219 CSI camera live MJPEG stream and snapshots. RAW10 Bayer debayer pipeline via numpy + Pillow. Auto-stop when not in use.</div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:rgba(251,191,36,0.1)">🤖</div>
+          <div class="feature-title">ROS2 Monitor</div>
+          <div class="feature-desc">Auto-detects ROS2 in Docker containers or host. Lists active nodes with pub/sub/services and topics with live Hz frequency. Echo any topic.</div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:rgba(248,113,113,0.1)">⚙️</div>
+          <div class="feature-title">Systemd Services</div>
+          <div class="feature-desc">Browse all 500+ host systemd services. Start, stop, restart, enable and disable directly from the dashboard. Full log viewer per service.</div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:rgba(56,189,248,0.1)">🐳</div>
+          <div class="feature-title">Docker Manager</div>
+          <div class="feature-desc">List all containers with status, CPU and memory usage. Start, stop and restart with one click. No Docker CLI needed.</div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:rgba(0,229,160,0.1)">🔔</div>
+          <div class="feature-title">Alert System</div>
+          <div class="feature-desc">10 configurable threshold rules. Email notifications via Gmail SMTP and Telegram bot. Toast notifications in the browser.</div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:rgba(167,139,250,0.1)">📈</div>
+          <div class="feature-title">Metrics History</div>
+          <div class="feature-desc">SQLite database with 1s/1m/1h aggregation. 7 interactive charts. Time range selector from 1 hour to 30 days.</div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:rgba(251,191,36,0.1)">🔒</div>
+          <div class="feature-title">HTTPS & Auth</div>
+          <div class="feature-desc">Self-signed SSL certificate auto-generated on first boot with SAN support. Optional JWT authentication with 24h token TTL.</div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:rgba(248,113,113,0.1)">💾</div>
+          <div class="feature-title">Backup & Restore</div>
+          <div class="feature-desc">One-click ZIP export of all config and data. Selective restore with automatic safety backup before applying changes.</div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:rgba(56,189,248,0.1)">🌙</div>
+          <div class="feature-title">Dark & Light Mode</div>
+          <div class="feature-desc">Full theme support with instant toggle. CSS custom properties for consistent theming across all 17 pages. Persisted in browser.</div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:rgba(0,229,160,0.1)">🔖</div>
+          <div class="feature-title">Release Manager</div>
+          <div class="feature-desc">Semver release script with 10 validation steps: Docker build, Python syntax, security scan, changelog generation, git tag and push.</div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ARCHITECTURE -->
+  <section>
+    <div class="section-inner">
+      <div class="reveal">
+        <div class="section-label">Under the hood</div>
+        <h2 class="section-title">Architecture</h2>
+        <p class="section-desc">Two Docker containers sharing host network. The backend accesses Jetson hardware via nsenter without leaving the container.</p>
+      </div>
+
+      <div class="arch-diagram reveal">
+        <div class="arch-box">
+          <div class="arch-box-title">Frontend</div>
+          <div class="arch-item"><div class="arch-dot" style="background:var(--cyan)"></div>React 18 + Vite</div>
+          <div class="arch-item"><div class="arch-dot" style="background:var(--cyan)"></div>Tailwind CSS</div>
+          <div class="arch-item"><div class="arch-dot" style="background:var(--cyan)"></div>Zustand state</div>
+          <div class="arch-item"><div class="arch-dot" style="background:var(--cyan)"></div>Recharts</div>
+          <div class="arch-item"><div class="arch-dot" style="background:var(--cyan)"></div>nginx + SSL</div>
+          <div class="arch-item"><div class="arch-dot" style="background:var(--cyan)"></div>Port 8443 (HTTPS)</div>
+        </div>
+
+        <div class="arch-arrow">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+          <span>WebSocket<br/>+ REST API</span>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="transform:rotate(180deg)">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </div>
+
+        <div class="arch-box">
+          <div class="arch-box-title">Backend</div>
+          <div class="arch-item"><div class="arch-dot" style="background:var(--green)"></div>FastAPI + Uvicorn</div>
+          <div class="arch-item"><div class="arch-dot" style="background:var(--green)"></div>psutil + tegrastats</div>
+          <div class="arch-item"><div class="arch-dot" style="background:var(--green)"></div>SQLite metrics DB</div>
+          <div class="arch-item"><div class="arch-dot" style="background:var(--green)"></div>nsenter host access</div>
+          <div class="arch-item"><div class="arch-dot" style="background:var(--green)"></div>Docker SDK</div>
+          <div class="arch-item"><div class="arch-dot" style="background:var(--green)"></div>Port 8000 (internal)</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- QUICK START -->
+  <section id="quickstart">
+    <div class="section-inner">
+      <div class="reveal">
+        <div class="section-label">Get started</div>
+        <h2 class="section-title">Up in 3 commands</h2>
+        <p class="section-desc">Docker Compose handles everything. No manual dependency installation needed.</p>
+      </div>
+
+      <div class="steps reveal" style="margin-top:3rem; max-width:700px;">
+        <div class="step">
+          <div class="step-num">01</div>
+          <div class="step-content">
+            <div class="step-title">Clone and configure</div>
+            <code class="step-code">git clone https://github.com/unixfool/jetson-dashboard.git
+cd jetson-dashboard && cp env.example .env</code>
+            <div class="step-note">Edit .env — set JETSON_IP to your device's IP address</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">02</div>
+          <div class="step-content">
+            <div class="step-title">Build and start</div>
+            <code class="step-code">docker compose up -d --build</code>
+            <div class="step-note">First build takes ~3 minutes. SSL certificate is auto-generated.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">03</div>
+          <div class="step-content">
+            <div class="step-title">Open in browser</div>
+            <code class="step-code">https://&lt;JETSON_IP&gt;:8443</code>
+            <div class="step-note">Accept the self-signed certificate warning, or install it via scripts/export-cert.sh</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- COMPATIBILITY -->
+  <section id="compat">
+    <div class="section-inner">
+      <div class="reveal">
+        <div class="section-label">Device support</div>
+        <h2 class="section-title">Compatible hardware</h2>
+      </div>
+
+      <div class="reveal" style="margin-top:2.5rem; border:1px solid var(--border); border-radius:12px; overflow:hidden; max-width:700px;">
+        <table class="compat-table">
+          <thead>
+            <tr>
+              <th>Device</th>
+              <th>JetPack</th>
+              <th>L4T</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Jetson Nano Developer Kit</td>
+              <td>4.6.x</td>
+              <td>R32.7.x</td>
+              <td><span class="badge-ok">✔ Tested</span></td>
+            </tr>
+            <tr>
+              <td>Jetson Nano (Ubuntu 24)</td>
+              <td>—</td>
+              <td>kernel 4.9-tegra</td>
+              <td><span class="badge-ok">✔ Tested</span></td>
+            </tr>
+            <tr>
+              <td>Jetson Xavier NX / AGX Xavier</td>
+              <td>5.x</td>
+              <td>R35.x</td>
+              <td><span class="badge-info">✔ Compatible</span></td>
+            </tr>
+            <tr>
+              <td>Jetson Orin NX / AGX Orin</td>
+              <td>6.x</td>
+              <td>R36.x</td>
+              <td><span class="badge-info">✔ Compatible</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- CTA -->
+  <section class="cta-section">
+    <div class="section-label">Open Source</div>
+    <h2 class="cta-title">Ready to deploy?</h2>
+    <p class="cta-desc">MIT licensed. Fork it, extend it, make it yours.</p>
+    <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
+      <a href="https://github.com/unixfool/jetson-dashboard" class="btn-primary" target="_blank">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        View on GitHub
+      </a>
+      <a href="https://github.com/unixfool/jetson-dashboard/blob/main/README.md" class="btn-secondary" target="_blank">
+        Read the Docs →
+      </a>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-left">
+      <span class="footer-logo">JETSON DASHBOARD</span>
+      <span class="footer-copy">© 2026 — MIT License</span>
+    </div>
+    <div class="footer-links">
+      <a href="https://github.com/unixfool/jetson-dashboard" class="footer-link">GitHub</a>
+      <a href="https://github.com/unixfool/jetson-dashboard/blob/main/README.md" class="footer-link">Docs</a>
+      <a href="https://github.com/unixfool/jetson-dashboard/blob/main/CHANGELOG.md" class="footer-link">Changelog</a>
+      <a href="https://github.com/unixfool/jetson-dashboard/blob/main/LICENSE" class="footer-link">License</a>
+    </div>
+  </footer>
+
+  <script>
+    // Scroll reveal
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible')
+          observer.unobserve(e.target)
+        }
+      })
+    }, { threshold: 0.1 })
+
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el))
+  </script>
+
+</body>
+</html>

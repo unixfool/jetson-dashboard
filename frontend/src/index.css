@@ -1,0 +1,208 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ── Dark mode (default) ─────────────────────────────────────────────────── */
+  :root {
+    --color-bg:      #080c10;
+    --color-surface: #0d1117;
+    --color-card:    #161b22;
+    --color-border:  #21262d;
+    --color-muted:   #30363d;
+    --color-text:    #e6edf3;
+    --color-dim:     #7d8590;
+    --color-green:   #3fb950;
+    --color-cyan:    #58a6ff;
+    --color-yellow:  #d29922;
+    --color-red:     #f85149;
+    --color-purple:  #bc8cff;
+    --color-orange:  #d18616;
+
+    /* Mesh gradient — two ambient glow spots (cyan top-right, green bottom-left) */
+    --mesh-bg:
+      radial-gradient(ellipse at 85% 10%, rgba(88,166,255,0.09) 0%, transparent 55%),
+      radial-gradient(ellipse at 10% 90%, rgba(63,185,80,0.07)  0%, transparent 55%),
+      #080c10;
+
+    --scrollbar-track: #0d1117;
+    --scrollbar-thumb: #30363d;
+  }
+
+  /* ── Light mode ──────────────────────────────────────────────────────────── */
+  [data-theme="light"] {
+    --color-bg:      #f0f2f5;
+    --color-surface: #ffffff;
+    --color-card:    #f8f9fa;
+    --color-border:  #d0d7de;
+    --color-muted:   #afb8c1;
+    --color-text:    #1f2328;
+    --color-dim:     #57606a;
+    --color-green:   #1a7f37;
+    --color-cyan:    #0969da;
+    --color-yellow:  #9a6700;
+    --color-red:     #cf222e;
+    --color-purple:  #8250df;
+    --color-orange:  #bc4c00;
+
+    /* Mesh gradient — softer warm tones for light mode */
+    --mesh-bg:
+      radial-gradient(ellipse at 85% 10%, rgba(9,105,218,0.07)  0%, transparent 55%),
+      radial-gradient(ellipse at 10% 90%, rgba(26,127,55,0.06)  0%, transparent 55%),
+      #f0f2f5;
+
+    --scrollbar-track: #f0f2f5;
+    --scrollbar-thumb: #afb8c1;
+  }
+
+  /* ── Light mode: override Tailwind jet-* fixed hex classes ──────────────── */
+  [data-theme="light"] .bg-jet-bg      { background-color: #f0f2f5 !important; }
+  [data-theme="light"] .bg-jet-surface { background-color: #ffffff !important; }
+  [data-theme="light"] .bg-jet-card    { background-color: #f8f9fa !important; }
+  [data-theme="light"] .border-jet-border { border-color: #d0d7de !important; }
+  [data-theme="light"] .text-jet-text  { color: #1f2328 !important; }
+  [data-theme="light"] .text-jet-dim   { color: #57606a !important; }
+  [data-theme="light"] .text-jet-muted { color: #afb8c1 !important; }
+  [data-theme="light"] .text-jet-cyan  { color: #0969da !important; }
+  [data-theme="light"] .text-jet-green { color: #1a7f37 !important; }
+  [data-theme="light"] .text-jet-red   { color: #cf222e !important; }
+  [data-theme="light"] .text-jet-yellow{ color: #9a6700 !important; }
+  [data-theme="light"] .text-jet-purple{ color: #8250df !important; }
+  [data-theme="light"] .card {
+    background-color: #f8f9fa !important;
+    border-color: #d0d7de !important;
+  }
+  [data-theme="light"] .panel {
+    background-color: #f8f9fa !important;
+    border-color: #d0d7de !important;
+  }
+  [data-theme="light"] .panel-header {
+    background-color: #ffffff !important;
+    border-color: #d0d7de !important;
+  }
+  [data-theme="light"] .nav-item { color: #57606a; }
+  [data-theme="light"] .nav-item:hover {
+    background-color: rgba(0,0,0,0.05);
+    color: #1f2328;
+  }
+  [data-theme="light"] .nav-item.active {
+    background-color: rgba(9,105,218,0.1);
+    color: #0969da;
+    border-color: rgba(9,105,218,0.2);
+  }
+
+  /* ── Scrollbar ───────────────────────────────────────────────────────────── */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+  *::-webkit-scrollbar { width: 6px; height: 6px; }
+  *::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+  *::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+
+  /* ── Body ────────────────────────────────────────────────────────────────── */
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    overflow-x: hidden;
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
+}
+
+@layer components {
+  /* ── Card ────────────────────────────────────────────────────────────────── */
+  .card {
+    @apply bg-jet-card border border-jet-border rounded-lg p-4 relative overflow-hidden;
+  }
+  .card-header {
+    @apply flex items-center justify-between mb-4;
+  }
+  .card-title {
+    @apply font-mono text-xs font-medium text-jet-dim uppercase tracking-widest;
+  }
+
+  /* ── Panel — card with explicit header bar ───────────────────────────────── */
+  .panel {
+    @apply border border-jet-border rounded-xl overflow-hidden bg-jet-card;
+  }
+  .panel-header {
+    @apply flex items-center gap-2 px-4 py-3 border-b border-jet-border bg-jet-surface;
+  }
+  .panel-body {
+    @apply p-4 bg-jet-card;
+  }
+
+  /* ── Metrics ─────────────────────────────────────────────────────────────── */
+  .metric-value { @apply font-display text-2xl font-bold; }
+  .metric-unit  { @apply font-mono text-xs text-jet-dim ml-1; }
+
+  /* ── Badges ──────────────────────────────────────────────────────────────── */
+  .badge        { @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono font-medium; }
+  .badge-green  { @apply badge bg-jet-green/10 text-jet-green border border-jet-green/20; }
+  .badge-red    { @apply badge bg-jet-red/10 text-jet-red border border-jet-red/20; }
+  .badge-yellow { @apply badge bg-jet-yellow/10 text-jet-yellow border border-jet-yellow/20; }
+  .badge-cyan   { @apply badge bg-jet-cyan/10 text-jet-cyan border border-jet-cyan/20; }
+
+  /* ── Buttons ─────────────────────────────────────────────────────────────── */
+  .btn         { @apply inline-flex items-center gap-2 px-3 py-1.5 rounded text-xs font-mono font-medium border transition-all duration-150 cursor-pointer select-none; }
+  .btn-primary { @apply btn bg-jet-cyan/10 text-jet-cyan border-jet-cyan/30 hover:bg-jet-cyan/20 hover:border-jet-cyan/50 active:scale-95; }
+  .btn-danger  { @apply btn bg-jet-red/10 text-jet-red border-jet-red/30 hover:bg-jet-red/20 hover:border-jet-red/50 active:scale-95; }
+  .btn-success { @apply btn bg-jet-green/10 text-jet-green border-jet-green/30 hover:bg-jet-green/20 hover:border-jet-green/50 active:scale-95; }
+  .btn-ghost   { @apply btn bg-transparent text-jet-dim border-jet-border hover:bg-jet-muted/20 hover:text-jet-text active:scale-95; }
+
+  /* ── Gauge ───────────────────────────────────────────────────────────────── */
+  .gauge-bar  { @apply h-1.5 rounded-full bg-jet-border overflow-hidden; }
+  .gauge-fill { @apply h-full rounded-full transition-all duration-700 ease-out; }
+
+  /* ── Navigation ──────────────────────────────────────────────────────────── */
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2 rounded-md text-sm font-body
+           text-jet-dim transition-all duration-150 cursor-pointer select-none;
+  }
+  .nav-item:hover  { @apply bg-jet-muted/20 text-jet-text; }
+  .nav-item.active { @apply bg-jet-cyan/10 text-jet-cyan border border-jet-cyan/20; }
+
+  /* ── Input / Select ──────────────────────────────────────────────────────── */
+  .jet-input {
+    @apply w-full px-3 py-2 rounded-lg border border-jet-border font-mono text-sm
+           bg-jet-surface text-jet-text outline-none transition-colors;
+  }
+  .jet-input:focus {
+    @apply border-jet-cyan/60;
+    box-shadow: 0 0 0 2px rgba(88,166,255,0.12);
+  }
+  .jet-input::placeholder { @apply text-jet-muted; }
+
+  /* ── Glow effects ────────────────────────────────────────────────────────── */
+  .glow-green { box-shadow: 0 0 20px rgba(63,185,80,0.15); }
+  .glow-cyan  { box-shadow: 0 0 20px rgba(88,166,255,0.15); }
+  .glow-red   { box-shadow: 0 0 20px rgba(248,81,73,0.15); }
+
+  /* ── Mesh gradient background ────────────────────────────────────────────── */
+  /* Replaces the grid pattern. Two soft ambient color spots in opposite corners.
+     The CSS variable is defined in :root (dark) and [data-theme="light"] (light)
+     so it automatically adapts when the theme is toggled. */
+  .grid-bg {
+    background: var(--mesh-bg);
+    background-attachment: fixed;
+  }
+
+  /* ── Scan line animation ─────────────────────────────────────────────────── */
+  .scanline::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(88,166,255,0.3), transparent);
+    animation: scan 4s linear infinite;
+    pointer-events: none;
+  }
+
+  /* ── Terminal cursor ─────────────────────────────────────────────────────── */
+  .cursor::after {
+    content: '█';
+    animation: blink 1s step-end infinite;
+    color: var(--color-green);
+  }
+}

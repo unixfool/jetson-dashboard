@@ -1,0 +1,24 @@
+# Changelog
+
+All notable changes to Jetson Dashboard are documented here.
+Format based on [Keep a Changelog](https://keepachangelog.com).
+
+## [v1.0.0] — 2026-03-13
+
+### ✨ New Features
+- Real-time hardware monitoring via WebSocket (CPU, GPU, Memory, Storage, Network, Thermals)
+- Auto-detection of Jetson model, JetPack, CUDA, cuDNN, TensorRT, OpenCV
+- Fan PWM control (0–255), persisted across reboots
+- nvpmodel power mode switching (MaxN, 5W, 10W, etc.)
+- jetson_clocks enable/disable support
+- Process manager with host PID kill via nsenter
+- Docker container manager (list, start, stop, restart)
+- Systemd service manager (browse, start, stop, restart, enable/disable)
+- IMX219 CSI camera live MJPEG stream and snapshot (RAW10 Bayer debayer pipeline)
+- ROS2 monitor — auto-detects Docker/host, lists nodes and topics with Hz
+- Alert system with 10 configurable rules, email (Gmail SMTP) and Telegram notifications
+- SQLite metrics history with 7 charts, range selector 1H–30D
+- HTTPS with auto-generated self-signed certificate (SAN support)
+- Backup and restore — ZIP export of all config and data, selective restore
+- Dark and Light mode with instant toggle, persisted in browser
+- JWT authentication (optional), Bearer tokens, 24h TTL

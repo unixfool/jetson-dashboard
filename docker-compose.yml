@@ -1,0 +1,100 @@
+# Jetson Dashboard - Docker Compose Deployment
+# Optimized for NVIDIA Jetson ARM64 devices
+
+services:
+
+  # Backend API + WebSocket Server
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../docker/Dockerfile.backend
+    image: jetson-dashboard-backend:latest
+    container_name: jetson-dashboard-backend
+    restart: unless-stopped
+
+    environment:
+      - JETSON_MODEL=${JETSON_MODEL:-}
+      - JETPACK_VERSION=${JETPACK_VERSION:-}
+      - CUDA_VERSION=${CUDA_VERSION:-}
+      - CUDNN_VERSION=${CUDNN_VERSION:-}
+      - TENSORRT_VERSION=${TENSORRT_VERSION:-}
+      - AUTH_ENABLED=${AUTH_ENABLED:-false}
+      - AUTH_USERNAME=${AUTH_USERNAME:-admin}
+      - AUTH_PASSWORD=${AUTH_PASSWORD:-changeme}
+      - AUTH_SECRET=${AUTH_SECRET:-jetson-dashboard-secret}
+      - AUTH_TOKEN_TTL=${AUTH_TOKEN_TTL:-86400}
+      - METRICS_INTERVAL=${METRICS_INTERVAL:-1.5}
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+
+    privileged: true
+
+    devices:
+      - /dev/video0:/dev/video0
+
+    volumes:
+      - /proc:/proc:ro
+      - /sys:/sys
+      - /etc:/etc:ro
+      - /var/log:/var/log:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker:ro
+      - /usr/bin/tegrastats:/usr/bin/tegrastats:ro
+      - /usr/bin/jetson_clocks:/usr/bin/jetson_clocks:ro
+      - /usr/sbin/nvpmodel:/usr/sbin/nvpmodel:ro
+      - /usr/local/cuda:/usr/local/cuda:ro
+      - /var/lib/dpkg:/var/lib/dpkg:ro
+      - /usr/local/bin/opencv_version:/usr/local/bin/opencv_version:ro
+      - /usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/tegra:ro
+      - ./data:/app/data
+
+    network_mode: host
+
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Frontend Web Server
+  frontend:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.frontend
+    image: jetson-dashboard-frontend:latest
+    container_name: jetson-dashboard-frontend
+    restart: unless-stopped
+
+    environment:
+      # IP del Jetson para el certificado SSL (SAN)
+      - JETSON_IP=${JETSON_IP:-192.168.1.138}
+
+    volumes:
+      # Persistir certificado SSL entre rebuilds
+      - ./data/ssl:/etc/nginx/ssl
+
+    network_mode: host
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "--no-check-certificate", "https://localhost:8443/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
