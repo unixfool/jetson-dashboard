@@ -14,10 +14,12 @@
 #    bash scripts/release.sh --major           Auto bump 1.0.0 → 2.0.0
 #    bash scripts/release.sh --dry-run         Simulate without any changes
 #    bash scripts/release.sh --patch --dry-run
+#    bash scripts/release.sh --patch --skip-build  Skip Docker build (use on PC/x86)
 # =============================================================================
 
 set -euo pipefail
 
+# ── Colors ────────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; DIM='\033[2m'; RESET='\033[0m'
 
@@ -29,20 +31,24 @@ header()  { echo -e "\n${BOLD}${CYAN}══ $* ══${RESET}"; }
 dryrun()  { echo -e "${DIM}[dry-run]${RESET} $*"; }
 die()     { error "$*"; exit 1; }
 
+# ── Arguments ─────────────────────────────────────────────────────────────────
 BUMP_TYPE=""
 DRY_RUN=false
+SKIP_BUILD=false
 
 for arg in "$@"; do
   case $arg in
-    --patch)   BUMP_TYPE="patch" ;;
-    --minor)   BUMP_TYPE="minor" ;;
-    --major)   BUMP_TYPE="major" ;;
-    --dry-run) DRY_RUN=true ;;
-    --help|-h) echo "Usage: bash scripts/release.sh [--patch|--minor|--major] [--dry-run]"; exit 0 ;;
+    --patch)       BUMP_TYPE="patch" ;;
+    --minor)       BUMP_TYPE="minor" ;;
+    --major)       BUMP_TYPE="major" ;;
+    --dry-run)     DRY_RUN=true ;;
+    --skip-build)  SKIP_BUILD=true ;;
+    --help|-h)     echo "Usage: bash scripts/release.sh [--patch|--minor|--major] [--dry-run] [--skip-build]"; exit 0 ;;
     *) die "Unknown argument: $arg" ;;
   esac
 done
 
+# ── Project root ──────────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT_DIR"
@@ -51,11 +57,13 @@ PACKAGE_JSON="frontend/package.json"
 CHANGELOG="CHANGELOG.md"
 VERSION_FILE="VERSION"
 
+# ── Banner ────────────────────────────────────────────────────────────────────
 echo -e "\n${BOLD}${CYAN}╔══════════════════════════════════════════╗${RESET}"
 echo -e "${BOLD}${CYAN}║   JETSON DASHBOARD — RELEASE MANAGER     ║${RESET}"
 echo -e "${BOLD}${CYAN}╚══════════════════════════════════════════╝${RESET}\n"
 $DRY_RUN && warn "DRY RUN MODE — no changes will be committed or pushed\n"
 
+# ── STEP 1 — Pre-flight ───────────────────────────────────────────────────────
 header "STEP 1 — Pre-flight checks"
 
 command -v git >/dev/null 2>&1 || die "git is not installed"
@@ -119,20 +127,27 @@ else
 fi
 success "Remote check done"
 
+# ── STEP 2 — Docker build ─────────────────────────────────────────────────────
 header "STEP 2 — Docker build validation"
 
-command -v docker >/dev/null 2>&1 || die "docker is not installed"
-docker info >/dev/null 2>&1       || die "Docker daemon is not running"
-success "Docker daemon is running"
-
-info "Building Docker images (no-cache)..."
-if ! $DRY_RUN; then
-  docker compose build --no-cache 2>&1 | tail -5
-  success "Docker build passed"
+if $SKIP_BUILD; then
+  warn "Docker build skipped (--skip-build flag set)"
+  warn "Remember to rebuild on the Jetson after deploying: docker compose up -d --build"
 else
-  dryrun "docker compose build --no-cache"
+  command -v docker >/dev/null 2>&1 || die "docker is not installed"
+  docker info >/dev/null 2>&1       || die "Docker daemon is not running"
+  success "Docker daemon is running"
+
+  info "Building Docker images (no-cache)..."
+  if ! $DRY_RUN; then
+    docker compose build --no-cache 2>&1 | tail -5
+    success "Docker build passed"
+  else
+    dryrun "docker compose build --no-cache"
+  fi
 fi
 
+# ── STEP 3 — Backend validation ───────────────────────────────────────────────
 header "STEP 3 — Backend validation"
 
 PYTHON_ERRORS=0
@@ -160,6 +175,7 @@ done
 [[ $MISSING -eq 0 ]] || die "$MISSING required backend file(s) missing"
 success "All required backend files present"
 
+# ── STEP 4 — Frontend validation ──────────────────────────────────────────────
 header "STEP 4 — Frontend validation"
 
 python3 -c "import json; json.load(open('$PACKAGE_JSON'))" 2>/dev/null || die "package.json is not valid JSON"
@@ -182,6 +198,7 @@ success "All required frontend files present"
 grep -q 'data-theme="light"' frontend/src/index.css || warn "Light mode CSS not found in index.css"
 success "CSS theme variables present"
 
+# ── STEP 5 — Infrastructure validation ───────────────────────────────────────
 header "STEP 5 — Infrastructure validation"
 
 docker compose config --quiet 2>/dev/null || die "docker-compose.yml is invalid"
@@ -209,6 +226,7 @@ for entry in ".env" "data/" "node_modules/"; do
 done
 success ".gitignore OK"
 
+# ── STEP 6 — Security checks ──────────────────────────────────────────────────
 header "STEP 6 — Security checks"
 
 git ls-files --error-unmatch .env >/dev/null 2>&1 && die ".env is tracked by git — run: git rm --cached .env"
@@ -235,6 +253,7 @@ else
   [[ "$ans" =~ ^[Yy]$ ]] || die "Fix secrets before releasing"
 fi
 
+# ── STEP 7 — Version management ──────────────────────────────────────────────
 header "STEP 7 — Version management"
 
 CURRENT_VERSION=$(python3 -c "import json; print(json.load(open('$PACKAGE_JSON'))['version'])")
@@ -276,6 +295,7 @@ fi
 git rev-parse "v$NEW_VERSION" >/dev/null 2>&1 && die "Tag v$NEW_VERSION already exists"
 success "New version: ${BOLD}v$NEW_VERSION${RESET}"
 
+# ── STEP 8 — Changelog ───────────────────────────────────────────────────────
 header "STEP 8 — Changelog generation"
 
 LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
@@ -338,6 +358,7 @@ if ! [[ -n "$BUMP_TYPE" ]]; then
   fi
 fi
 
+# ── STEP 9 — Summary ─────────────────────────────────────────────────────────
 header "STEP 9 — Release summary"
 
 echo ""
@@ -354,6 +375,7 @@ if ! $DRY_RUN; then
   [[ "$ans" =~ ^[Yy]$ ]] || die "Release aborted"
 fi
 
+# ── STEP 10 — Apply release ───────────────────────────────────────────────────
 header "STEP 10 — Applying release"
 
 info "Bumping version in package.json..."
@@ -417,6 +439,7 @@ else
   dryrun "git push origin $CURRENT_BRANCH && git push origin v$NEW_VERSION"
 fi
 
+# ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${BOLD}${GREEN}╔══════════════════════════════════════════╗${RESET}"
 echo -e "${BOLD}${GREEN}║   RELEASE v$NEW_VERSION COMPLETE!           ║${RESET}"
