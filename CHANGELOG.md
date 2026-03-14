@@ -4,12 +4,15 @@ All notable changes to Jetson Dashboard are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com).
 
 
-## [v1.0.2] — 2026-03-14
+## [v1.0.3] — 2026-03-14
 
 ### 📚 Documentation
+- docs: update web with dynamic version, USB camera and deploy script
+
+
+## [v1.0.2] — 2026-03-14
+### 📚 Documentation
 - docs: update README with camera USB, deploy script and release workflow
-
-
 ## [v1.0.1] — 2026-03-14
 ### 📚 Documentation
 - docs: update README with disclaimer
