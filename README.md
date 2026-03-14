@@ -18,10 +18,10 @@ A full-stack web monitoring and management system for NVIDIA Jetson devices. Bui
 | **Fan control** | PWM fan speed 0–255, persisted across reboots |
 | **Power modes** | nvpmodel switching (MaxN, 5W, 10W, etc.) |
 | **jetson_clocks** | Enable/disable CPU/GPU max clock lock |
-| **Process manager** | List, sort, kill processes (SIGTERM/SIGKILL) including host PIDs |
+| **Process manager** | List, sort, kill processes including host PIDs |
 | **Docker manager** | List, start, stop, restart containers |
 | **Systemd services** | Browse, start, stop, restart, enable/disable all host services |
-| **Camera (IMX219)** | Live MJPEG stream + snapshot, RAW10 Bayer debayer pipeline |
+| **Camera** | IMX219 CSI + USB cameras — auto-detected, live MJPEG stream + snapshot |
 | **ROS2 monitor** | Auto-detect Docker/host ROS2, list nodes and topics with Hz |
 | **Alert system** | 10 configurable rules, email (Gmail SMTP) and Telegram notifications |
 | **History** | SQLite metrics database with 7 charts, range 1H–30D |
@@ -39,7 +39,7 @@ A full-stack web monitoring and management system for NVIDIA Jetson devices. Bui
 | NVIDIA Jetson device | Nano, NX, AGX, Orin — any model |
 | JetPack 4.x / 5.x / 6.x | Or Ubuntu 22/24 with L4T kernel |
 | Docker + Docker Compose | `docker compose` v2 required |
-| Camera (optional) | IMX219 CSI on `/dev/video0` |
+| Camera (optional) | IMX219 CSI or any USB UVC camera on `/dev/video0` |
 
 ---
 
@@ -116,7 +116,7 @@ jetson-dashboard/
 │   │   ├── alerts.py               Alert rules CRUD and notifications
 │   │   ├── history.py              SQLite metrics query endpoints
 │   │   ├── systemd.py              Systemd service management
-│   │   ├── camera.py               IMX219 RAW capture + MJPEG stream
+│   │   ├── camera.py               CSI/USB camera auto-detection + MJPEG stream
 │   │   ├── ros2.py                 ROS2 node/topic monitor
 │   │   └── backup.py               Backup and restore
 │   ├── collectors/
@@ -144,7 +144,7 @@ jetson-dashboard/
 │   └── src/
 │       ├── main.jsx
 │       ├── App.jsx
-│       ├── index.css               CSS variables — Dark & Light mode
+│       ├── index.css               CSS variables — Dark & Light mode + mesh gradient
 │       ├── pages/
 │       │   ├── Dashboard.jsx
 │       │   ├── CPUPage.jsx
@@ -193,7 +193,8 @@ jetson-dashboard/
 │       └── jetson-dashboard.crt    Auto-generated SSL certificate
 │
 ├── scripts/
-│   ├── release.sh                  Semver release manager — build, tag, push
+│   ├── release.sh                  Semver release manager — run on PC
+│   ├── deploy.sh                   Deploy script — run on Jetson
 │   ├── export-cert.sh              Export SSL cert for browser installation
 │   └── cleanup-systemd-runs.sh     Clean leftover systemd transient units
 │
@@ -208,15 +209,21 @@ jetson-dashboard/
 
 ---
 
-## Camera Setup (IMX219)
+## Camera Setup
 
-The dashboard connects to an IMX219 CSI camera on `/dev/video0`.
+The dashboard auto-detects the connected camera type on first stream start by querying `v4l2-ctl --list-formats`. No manual configuration is needed.
 
-**Note:** `nvargus-daemon` is not required. The pipeline uses `v4l2-ctl` for RAW10 Bayer capture and debayers in software with numpy + Pillow.
+| Camera type | Format | Pipeline |
+|---|---|---|
+| IMX219 CSI | RAW10 Bayer (RG10) | RAW capture → debayering → JPEG |
+| USB — with hardware encoder | MJPEG native | Direct JPEG from camera |
+| USB — basic webcam | YUYV 4:2:2 | YUV → RGB conversion → JPEG |
+
+**IMX219 notes:** `nvargus-daemon` is not required. The pipeline uses `v4l2-ctl` for RAW10 Bayer capture and debayers in software with numpy + Pillow.
+
+**USB notes:** If your USB camera is on `/dev/video1` instead of `/dev/video0`, update `CAMERA_DEVICE` in `backend/api/camera.py`.
 
 The camera stream auto-starts when the Camera page is opened and auto-stops 10 seconds after the last client disconnects to free CPU resources.
-
-If no camera is connected, the page shows a "Capture failed" status without affecting other features.
 
 ---
 
@@ -248,8 +255,6 @@ To install the certificate and remove the warning permanently:
 ```bash
 cd ~/jetson-dashboard && bash scripts/export-cert.sh
 ```
-
-Follow the instructions to install `jetson-dashboard.crt` in your browser.
 
 ### Remote access (internet)
 Forward port **8443 TCP** on your router to `<JETSON_IP>:8443`. Then access at `https://<YOUR_PUBLIC_IP>:8443`.
@@ -288,6 +293,33 @@ docker compose restart backend
 
 ---
 
+## Release and Deploy Workflow
+
+This project uses two separate scripts for release management:
+
+| Script | Where to run | Purpose |
+|---|---|---|
+| `scripts/release.sh` | PC / developer machine | Bump version, generate changelog, create git tag, push to GitHub |
+| `scripts/deploy.sh` | Jetson (production) | Pull latest release, build ARM64 images, restart services |
+
+**On your PC — create a new release:**
+```bash
+bash scripts/release.sh --patch          # 1.0.0 → 1.0.1
+bash scripts/release.sh --minor          # 1.0.0 → 1.1.0
+bash scripts/release.sh --major          # 1.0.0 → 2.0.0
+bash scripts/release.sh --patch --dry-run        # Simulate without changes
+bash scripts/release.sh --patch --skip-build     # Skip Docker build validation
+```
+
+**On the Jetson — apply the release:**
+```bash
+bash scripts/deploy.sh                   # Pull + build + restart
+bash scripts/deploy.sh --version         # Show current deployed version
+bash scripts/deploy.sh --rollback        # Rollback to previous version
+```
+
+---
+
 ## Useful Commands
 
 ```bash
@@ -301,11 +333,15 @@ docker compose down && docker compose up -d --build
 docker logs jetson-dashboard-backend -f
 docker logs jetson-dashboard-frontend -f
 
-# Clean leftover systemd transient units (run once if needed)
-sudo systemctl reset-failed
+# Check running containers
+docker compose ps
 
 # Export SSL certificate for browser installation
 bash scripts/export-cert.sh
+
+# Clean leftover systemd transient units (run once if needed)
+sudo systemctl reset-failed
+bash scripts/cleanup-systemd-runs.sh
 
 # Shell inside backend container
 docker exec -it jetson-dashboard-backend bash
@@ -327,7 +363,9 @@ The dashboard uses `privileged: true` and mounts `/proc`, `/sys`, and `/etc` rea
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+MIT License — see [LICENSE](LICENSE) for full text.
+
+---
 
 ## Disclaimer
 
@@ -340,6 +378,3 @@ All trademarks, product names, and company names or logos mentioned in this repo
 This repository was created as a personal project to experiment with and manage a self-hosted server environment using Jetson Nano hardware.
 
 The maintainers of this repository are not associated with NVIDIA or Waveshare in any official capacity.
-=======
-# jetson-dashboard
-Jetson Dashboard is a web-based monitoring and management system for NVIDIA Jetson devices, providing real-time hardware metrics, system control, Docker management, and ROS2 monitoring through a modern dashboard interface.
