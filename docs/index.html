@@ -753,7 +753,7 @@
   <!-- HERO -->
   <section class="hero">
     <div class="hero-badge">
-      <span>v1.0.0 — Open Source</span>
+      <span id="version-badge">v1.0.0 — Open Source</span>
     </div>
     <h1 class="hero-title">
       <span class="line1">Monitor Your</span>
@@ -851,7 +851,7 @@
         <div class="feature-card">
           <div class="feature-icon" style="background:rgba(167,139,250,0.1)">📷</div>
           <div class="feature-title">Camera Live Stream</div>
-          <div class="feature-desc">IMX219 CSI camera live MJPEG stream and snapshots. RAW10 Bayer debayer pipeline via numpy + Pillow. Auto-stop when not in use.</div>
+          <div class="feature-desc">IMX219 CSI and USB cameras — auto-detected on first start. MJPEG stream and snapshots. RAW10 Bayer debayer for CSI, native MJPEG/YUYV for USB. Auto-stop when not in use.</div>
         </div>
 
         <div class="feature-card">
@@ -904,8 +904,8 @@
 
         <div class="feature-card">
           <div class="feature-icon" style="background:rgba(0,229,160,0.1)">🔖</div>
-          <div class="feature-title">Release Manager</div>
-          <div class="feature-desc">Semver release script with 10 validation steps: Docker build, Python syntax, security scan, changelog generation, git tag and push.</div>
+          <div class="feature-title">Release &amp; Deploy</div>
+          <div class="feature-desc">Two-script workflow: <code>release.sh</code> runs on your PC (semver bump, changelog, git tag, push) and <code>deploy.sh</code> runs on the Jetson (pull, ARM64 build, restart, health check, rollback).</div>
         </div>
 
       </div>
@@ -994,6 +994,14 @@ cd jetson-dashboard && cp env.example .env</code>
             <div class="step-note">Accept the self-signed certificate warning, or install it via scripts/export-cert.sh</div>
           </div>
         </div>
+        <div class="step">
+          <div class="step-num">04</div>
+          <div class="step-content">
+            <div class="step-title">Deploy future releases</div>
+            <code class="step-code">bash scripts/deploy.sh</code>
+            <div class="step-note">Run on the Jetson after each new release — pulls, rebuilds and restarts automatically.</div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -1071,7 +1079,7 @@ cd jetson-dashboard && cp env.example .env</code>
   <footer>
     <div class="footer-left">
       <span class="footer-logo">JETSON DASHBOARD</span>
-      <span class="footer-copy">© 2026 — MIT License</span>
+      <span class="footer-copy">© 2026 — MIT License - Created by: y2k </span>
     </div>
     <div class="footer-links">
       <a href="https://github.com/unixfool/jetson-dashboard" class="footer-link">GitHub</a>
@@ -1091,8 +1099,19 @@ cd jetson-dashboard && cp env.example .env</code>
         }
       })
     }, { threshold: 0.1 })
-
     document.querySelectorAll('.reveal').forEach(el => observer.observe(el))
+
+    // Auto-fetch latest version from GitHub API
+    // Updates the hero badge automatically on every release — no manual edit needed
+    fetch('https://api.github.com/repos/unixfool/jetson-dashboard/releases/latest')
+      .then(r => r.json())
+      .then(data => {
+        const badge = document.getElementById('version-badge')
+        if (badge && data.tag_name) {
+          badge.textContent = data.tag_name + ' — Open Source'
+        }
+      })
+      .catch(() => {}) // Silently fail — static fallback stays visible
   </script>
 
 </body>
