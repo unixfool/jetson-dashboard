@@ -4,19 +4,21 @@ All notable changes to Jetson Dashboard are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com).
 
 
-## [v1.0.1] — 2026-03-14
+## [v1.0.2] — 2026-03-14
 
+### 📚 Documentation
+- docs: update README with camera USB, deploy script and release workflow
+
+
+## [v1.0.1] — 2026-03-14
 ### 📚 Documentation
 - docs: update README with disclaimer
 - docs: update README
-
 ### 🔧 Chores
 - chore: add deploy script for Jetson
 - chore: fix entrypoint.sh executable permissions
 - chore: add JETSON_IP to env.example
 - chore: add --skip-build flag to release script
-
-
 ## [v1.0.0] — 2026-03-13
 ### ✨ New Features
 - Real-time hardware monitoring via WebSocket (CPU, GPU, Memory, Storage, Network, Thermals)
