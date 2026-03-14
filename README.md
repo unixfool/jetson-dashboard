@@ -328,6 +328,18 @@ The dashboard uses `privileged: true` and mounts `/proc`, `/sys`, and `/etc` rea
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
+
+## Disclaimer
+
+This project is an independent community project and is not affiliated with, endorsed by, or sponsored by NVIDIA or Waveshare.
+
+The NVIDIA Jetson Nano Developer Kit and Waveshare names are mentioned solely to indicate hardware compatibility with this project.
+
+All trademarks, product names, and company names or logos mentioned in this repository are the property of their respective owners.
+
+This repository was created as a personal project to experiment with and manage a self-hosted server environment using Jetson Nano hardware.
+
+The maintainers of this repository are not associated with NVIDIA or Waveshare in any official capacity.
 =======
 # jetson-dashboard
 Jetson Dashboard is a web-based monitoring and management system for NVIDIA Jetson devices, providing real-time hardware metrics, system control, Docker management, and ROS2 monitoring through a modern dashboard interface.
