@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Jetson Dashboard
 
 A full-stack web monitoring and management system for NVIDIA Jetson devices. Built with FastAPI + React, deployed via Docker Compose.
@@ -328,3 +329,7 @@ The dashboard uses `privileged: true` and mounts `/proc`, `/sys`, and `/etc` rea
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
+=======
+# jetson-dashboard
+Jetson Dashboard is a web-based monitoring and management system for NVIDIA Jetson devices, providing real-time hardware metrics, system control, Docker management, and ROS2 monitoring through a modern dashboard interface.
+>>>>>>> eec1d8ddbf8bede64a0ff20a7c6b59899b1a6438
