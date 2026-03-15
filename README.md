@@ -45,6 +45,20 @@ A full-stack web monitoring and management system for NVIDIA Jetson devices. Bui
 
 ## Quick Start
 
+### One-line install (recommended)
+
+Run this command on your Jetson — it handles everything automatically:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/unixfool/jetson-dashboard/main/install.sh | bash
+```
+
+The installer checks dependencies, clones the repo, generates secure credentials, builds the Docker images and starts the dashboard.
+
+---
+
+### Manual install
+
 ```bash
 # 1. Clone the repo
 git clone https://github.com/unixfool/jetson-dashboard.git
@@ -181,7 +195,8 @@ jetson-dashboard/
 ├── docker/
 │   ├── Dockerfile.backend
 │   ├── Dockerfile.frontend         Multi-stage: Node build → nginx serve
-│   ├── nginx.conf                  HTTP→HTTPS redirect, proxy, WebSocket
+│   ├── nginx.conf                  HTTP→HTTPS redirect, API proxy, WebSocket
+│   ├── nginx_map.conf              WebSocket upgrade map (http-level directive)
 │   └── entrypoint.sh               SSL cert auto-generation on first boot
 │
 ├── data/                           Persisted data (mounted as volume, gitignored)
@@ -197,6 +212,9 @@ jetson-dashboard/
 │   ├── deploy.sh                   Deploy script — run on Jetson
 │   ├── export-cert.sh              Export SSL cert for browser installation
 │   └── cleanup-systemd-runs.sh     Clean leftover systemd transient units
+│
+├── docs/
+│   └── index.html                  GitHub Pages landing page
 │
 ├── CHANGELOG.md
 ├── CONTRIBUTING.md
