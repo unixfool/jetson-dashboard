@@ -4,12 +4,15 @@ All notable changes to Jetson Dashboard are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com).
 
 
-## [v1.0.5] — 2026-03-15
+## [v1.0.6] — 2026-03-16
 
+### 📝 Other Changes
+- Update index.html: replace fixed IP with <JETSON_IP> and add one-line install
+
+
+## [v1.0.5] — 2026-03-15
 ### 📚 Documentation
 - docs: add one-line install, nginx_map.conf and docs/ to README
-
-
 ## [v1.0.4] — 2026-03-15
 ### 🐛 Bug Fixes
 - fix: frontend unhealthy and WebSocket 403
