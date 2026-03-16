@@ -790,7 +790,7 @@
         <span class="t-line"><span class="t-green">✔</span> <span class="t-dim">Container</span> jetson-dashboard-backend   <span class="t-green">Started</span></span>
         <span class="t-line"><span class="t-green">✔</span> <span class="t-dim">Container</span> jetson-dashboard-frontend  <span class="t-green">Started</span></span>
         <span class="t-line"> </span>
-        <span class="t-line"><span class="t-cyan">→</span> Dashboard ready at <span class="t-yellow">https://192.168.1.138:8443</span><span class="cursor"></span></span>
+        <span class="t-line"><span class="t-cyan">→</span> Dashboard ready at <span class="t-yellow">https://&lt;JETSON_IP&gt;:8443</span><span class="cursor"></span></span>
       </div>
     </div>
   </section>
@@ -964,42 +964,17 @@
     <div class="section-inner">
       <div class="reveal">
         <div class="section-label">Get started</div>
-        <h2 class="section-title">Up in 3 commands</h2>
-        <p class="section-desc">Docker Compose handles everything. No manual dependency installation needed.</p>
+        <h2 class="section-title">Up in 1 command</h2>
+        <p class="section-desc">The installer checks dependencies, clones the repo, generates secure credentials, builds the Docker images and starts the dashboard.</p>
       </div>
 
-      <div class="steps reveal" style="margin-top:3rem; max-width:700px;">
+      <div class="steps reveal" style="margin-top:3rem; max-width:770px;">
         <div class="step">
           <div class="step-num">01</div>
           <div class="step-content">
-            <div class="step-title">Clone and configure</div>
-            <code class="step-code">git clone https://github.com/unixfool/jetson-dashboard.git
-cd jetson-dashboard && cp env.example .env</code>
-            <div class="step-note">Edit .env — set JETSON_IP to your device's IP address</div>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-num">02</div>
-          <div class="step-content">
-            <div class="step-title">Build and start</div>
-            <code class="step-code">docker compose up -d --build</code>
-            <div class="step-note">First build takes ~3 minutes. SSL certificate is auto-generated.</div>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-num">03</div>
-          <div class="step-content">
-            <div class="step-title">Open in browser</div>
-            <code class="step-code">https://&lt;JETSON_IP&gt;:8443</code>
-            <div class="step-note">Accept the self-signed certificate warning, or install it via scripts/export-cert.sh</div>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-num">04</div>
-          <div class="step-content">
-            <div class="step-title">Deploy future releases</div>
-            <code class="step-code">bash scripts/deploy.sh</code>
-            <div class="step-note">Run on the Jetson after each new release — pulls, rebuilds and restarts automatically.</div>
+            <div class="step-title"> One-line install (recommended)</div>
+            <code class="step-code">curl -fsSL https://raw.githubusercontent.com/unixfool/jetson-dashboard/main/install.sh | bash</code>
+            <div class="step-note"> Run this command on your Jetson — it handles everything automatically</div>
           </div>
         </div>
       </div>
