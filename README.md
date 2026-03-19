@@ -29,6 +29,7 @@ A full-stack web monitoring and management system for NVIDIA Jetson devices. Bui
 | **Backup/Restore** | ZIP backup of all config and data, selective restore |
 | **Dark / Light mode** | Theme toggle, persisted in browser |
 | **JWT authentication** | Optional login, Bearer tokens, 24h TTL |
+| **Two-Factor Authentication** | TOTP 2FA via Google Authenticator or any TOTP app |
 
 ---
 
@@ -376,6 +377,33 @@ docker exec -it jetson-dashboard-backend bash
 | 6.x   | R36.x   | ✅ Compatible |
 
 The dashboard uses `privileged: true` and mounts `/proc`, `/sys`, and `/etc` read-only to access hardware metrics. Systemd commands use `nsenter --target 1 --mount` to reach the host PID 1 namespace from inside the container.
+
+---
+
+## Two-Factor Authentication
+
+2FA adds an extra layer of security to your dashboard login. It uses TOTP (Time-based One-Time Password), compatible with Google Authenticator, Authy and any standard TOTP app.
+
+### Enable 2FA
+
+1. Make sure `AUTH_ENABLED=true` in your `.env`
+2. Log in to the dashboard
+3. Go to **Settings → Two-Factor Authentication**
+4. Click **Enable 2FA**
+5. Scan the QR code with Google Authenticator
+6. Enter the 6-digit code to confirm — 2FA is now active
+
+### Login with 2FA active
+
+1. Enter your username and password
+2. Open Google Authenticator and enter the 6-digit code
+3. Access granted — token valid for 24h
+
+### Disable 2FA
+
+Go to **Settings → Two-Factor Authentication → Disable 2FA** and confirm with a valid code from your authenticator app.
+
+> The TOTP secret is stored in `data/settings.json` and is included in the Backup/Restore system.
 
 ---
 

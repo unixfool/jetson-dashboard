@@ -1,7 +1,7 @@
 {
   "name": "jetson-dashboard",
   "private": true,
-  "version": "1.0.6",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -15,7 +15,8 @@
     "recharts": "^2.12.7",
     "lucide-react": "^0.383.0",
     "zustand": "^4.5.4",
-    "clsx": "^2.1.1"
+    "clsx": "^2.1.1",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",

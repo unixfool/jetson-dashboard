@@ -27,7 +27,7 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
-  // Login
+  // Login — returns response object so caller can handle requires_totp
   login: async (username, password) => {
     set({ loading: true, error: null })
     try {
@@ -39,16 +39,29 @@ export const useAuthStore = create((set, get) => ({
       const data = await res.json()
       if (!res.ok) {
         set({ loading: false, error: data.detail || 'Invalid credentials' })
-        return false
+        return null
       }
+      // If 2FA is required, return the response without storing token
+      if (data.requires_totp) {
+        set({ loading: false, error: null })
+        return data
+      }
+      // Normal login — store token
       localStorage.setItem(TOKEN_KEY, data.token)
       localStorage.setItem(USER_KEY, data.username)
       set({ token: data.token, username: data.username, loading: false, error: null })
-      return true
+      return data
     } catch (e) {
       set({ loading: false, error: 'Connection error' })
-      return false
+      return null
     }
+  },
+
+  // Set token directly — used after 2FA login completes in LoginPage
+  setToken: (token, username) => {
+    localStorage.setItem(TOKEN_KEY, token)
+    localStorage.setItem(USER_KEY, username)
+    set({ token, username, error: null })
   },
 
   // Logout

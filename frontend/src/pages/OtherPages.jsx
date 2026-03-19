@@ -1,7 +1,9 @@
+import React from 'react'
 import { useMetricsStore } from '../store/metricsStore'
 import { ProgressBar, MiniAreaChart } from '../components/charts/Charts'
 import { formatBytes, formatBytesPerSec, formatTemp, getUsageColor, apiFetch } from '../utils/format'
-import { HardDrive, Network, Thermometer, FileText, Settings, RefreshCw, Power, Wind, Cpu, Zap } from 'lucide-react'
+import { HardDrive, Network, Thermometer, FileText, Settings, RefreshCw, Power, Wind, Cpu, Zap, ShieldCheck, ShieldOff, QrCode, Copy, Check } from 'lucide-react'
+import QRCode from 'qrcode'
 import { useState, useEffect, useRef } from 'react'
 import clsx from 'clsx'
 
@@ -265,6 +267,235 @@ export function LogsPage() {
           )}>{line}</div>
         ))}
       </div>
+    </div>
+  )
+}
+
+
+// ─── QR Canvas — renders TOTP URI as QR code locally (no external API) ─────────
+function QrCanvas({ uri }) {
+  const canvasRef = React.useRef(null)
+
+  React.useEffect(() => {
+    if (!canvasRef.current || !uri) return
+    QRCode.toCanvas(canvasRef.current, uri, {
+      width: 180,
+      margin: 1,
+      color: { dark: '#000000', light: '#ffffff' },
+    }).catch(err => console.error('QR generation error:', err))
+  }, [uri])
+
+  return <canvas ref={canvasRef} width={180} height={180} />
+}
+
+// ─── Two-Factor Authentication Section ────────────────────────────────────────
+function TwoFactorSection() {
+  const [status, setStatus]       = useState(null)    // {enabled: bool}
+  const [phase, setPhase]         = useState('idle')  // idle|setup|confirm|disable
+  const [setupData, setSetupData] = useState(null)    // {secret, provisioning_uri}
+  const [code, setCode]           = useState('')
+  const [msg, setMsg]             = useState(null)    // {text, error}
+  const [loading, setLoading]     = useState(false)
+  const [copied, setCopied]       = useState(false)
+
+  const showMsg = (text, error = false) => {
+    setMsg({ text, error })
+    setTimeout(() => setMsg(null), 4000)
+  }
+
+  useEffect(() => { fetchStatus() }, [])
+
+  const fetchStatus = async () => {
+    try {
+      const data = await apiFetch('/auth/2fa/status')
+      setStatus(data)
+    } catch { setStatus({ enabled: false }) }
+  }
+
+  const handleSetup = async () => {
+    setLoading(true)
+    try {
+      const data = await apiFetch('/auth/2fa/setup')
+      setSetupData(data)
+      setPhase('setup')
+      setCode('')
+    } catch (e) { showMsg(e.message, true) }
+    finally { setLoading(false) }
+  }
+
+  const handleConfirm = async () => {
+    if (code.length !== 6) return
+    setLoading(true)
+    try {
+      await apiFetch('/auth/2fa/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      })
+      showMsg('2FA enabled successfully')
+      setPhase('idle')
+      setSetupData(null)
+      setCode('')
+      fetchStatus()
+    } catch (e) { showMsg(e.message, true); setCode('') }
+    finally { setLoading(false) }
+  }
+
+  const handleDisable = async () => {
+    if (code.length !== 6) return
+    setLoading(true)
+    try {
+      await apiFetch('/auth/2fa/disable', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      })
+      showMsg('2FA disabled')
+      setPhase('idle')
+      setCode('')
+      fetchStatus()
+    } catch (e) { showMsg(e.message, true); setCode('') }
+    finally { setLoading(false) }
+  }
+
+  const copySecret = () => {
+    navigator.clipboard.writeText(setupData?.secret || '')
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const is2faEnabled = status?.enabled
+
+  return (
+    <div className="card">
+      <div className="card-header">
+        <span className="card-title flex items-center gap-2">
+          <ShieldCheck size={12} /> TWO-FACTOR AUTHENTICATION
+        </span>
+        <span className={clsx('badge', is2faEnabled ? 'badge-green' : 'badge-yellow')}>
+          {is2faEnabled ? 'ENABLED' : 'DISABLED'}
+        </span>
+      </div>
+
+      {phase === 'idle' && (
+        <div className="space-y-4">
+          <p className="font-mono text-xs text-jet-dim leading-relaxed">
+            {is2faEnabled
+              ? 'Your account is protected with a time-based one-time password (TOTP). You will need your authenticator app on every login.'
+              : 'Add an extra layer of security. After setup, each login will require a 6-digit code from Google Authenticator or any TOTP app.'}
+          </p>
+          {msg && (
+            <div className={clsx('font-mono text-xs px-3 py-2 rounded border',
+              msg.error
+                ? 'bg-jet-red/10 border-jet-red/30 text-jet-red'
+                : 'bg-jet-green/10 border-jet-green/30 text-jet-green')}>
+              {msg.text}
+            </div>
+          )}
+          {is2faEnabled ? (
+            <button onClick={() => { setPhase('disable'); setCode('') }} className="btn-danger">
+              <ShieldOff size={12} /> Disable 2FA
+            </button>
+          ) : (
+            <button onClick={handleSetup} disabled={loading} className="btn-primary">
+              <ShieldCheck size={12} /> {loading ? 'Setting up...' : 'Enable 2FA'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {phase === 'setup' && setupData && (
+        <div className="space-y-5">
+          <p className="font-mono text-xs text-jet-dim">
+            Scan this QR code with <span className="text-jet-text">Google Authenticator</span>, Authy or any TOTP app.
+          </p>
+
+          {/* QR Code rendered locally via qrcode npm package — no external requests */}
+          <div className="flex flex-col items-center gap-3">
+            <div className="p-3 bg-white rounded-xl inline-block">
+              <QrCanvas uri={setupData.provisioning_uri} />
+            </div>
+            <p className="font-mono text-[10px] text-jet-dim text-center">
+              Can&apos;t scan? Enter the secret key manually:
+            </p>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-jet-border bg-jet-surface">
+              <code className="font-mono text-xs text-jet-cyan tracking-widest">{setupData.secret}</code>
+              <button onClick={copySecret} className="text-jet-dim hover:text-jet-cyan transition-colors ml-2">
+                {copied ? <Check size={12} className="text-jet-green" /> : <Copy size={12} />}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="font-mono text-[10px] text-jet-dim tracking-wider uppercase block mb-1.5">
+              Enter the 6-digit code to confirm setup
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              value={code}
+              onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="000000"
+              className="w-full bg-jet-surface border border-jet-border rounded-lg px-4 py-2.5 font-mono text-xl text-center tracking-[0.4em] text-jet-text placeholder-jet-muted focus:outline-none focus:border-jet-cyan/60 transition-colors"
+            />
+          </div>
+
+          {msg && (
+            <div className="font-mono text-xs px-3 py-2 rounded border bg-jet-red/10 border-jet-red/30 text-jet-red">
+              {msg.text}
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              onClick={handleConfirm}
+              disabled={loading || code.length !== 6}
+              className="btn-success flex-1">
+              {loading ? 'Verifying...' : 'Activate 2FA'}
+            </button>
+            <button onClick={() => { setPhase('idle'); setCode(''); setSetupData(null) }} className="btn-ghost">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {phase === 'disable' && (
+        <div className="space-y-4">
+          <p className="font-mono text-xs text-jet-dim">
+            Enter a valid code from your authenticator app to confirm disabling 2FA.
+          </p>
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={6}
+            value={code}
+            onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            placeholder="000000"
+            autoFocus
+            className="w-full bg-jet-surface border border-jet-border rounded-lg px-4 py-2.5 font-mono text-xl text-center tracking-[0.4em] text-jet-text placeholder-jet-muted focus:outline-none focus:border-jet-red/60 transition-colors"
+          />
+          {msg && (
+            <div className="font-mono text-xs px-3 py-2 rounded border bg-jet-red/10 border-jet-red/30 text-jet-red">
+              {msg.text}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <button
+              onClick={handleDisable}
+              disabled={loading || code.length !== 6}
+              className="btn-danger flex-1">
+              {loading ? 'Disabling...' : 'Confirm Disable'}
+            </button>
+            <button onClick={() => { setPhase('idle'); setCode('') }} className="btn-ghost">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -626,6 +857,9 @@ export function SettingsPage() {
           )}
         </div>
       )}
+
+      {/* ── Two-Factor Authentication ── */}
+      <TwoFactorSection />
 
       {/* ── System Actions ── */}
       <div className="card">
