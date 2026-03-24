@@ -27,6 +27,7 @@ A full-stack web monitoring and management system for NVIDIA Jetson devices. Bui
 | **History** | SQLite metrics database with 7 charts, range 1H–30D |
 | **HTTPS** | Self-signed SSL certificate, auto-generated on first boot |
 | **Backup/Restore** | ZIP backup of all config and data, selective restore |
+| **Task Scheduler** | Schedule commands on the Jetson host — presets, history, run now |
 | **Dark / Light mode** | Theme toggle, persisted in browser |
 | **JWT authentication** | Optional login, Bearer tokens, 24h TTL |
 | **Two-Factor Authentication** | TOTP 2FA via Google Authenticator or any TOTP app |
@@ -126,14 +127,15 @@ jetson-dashboard/
 │   ├── api/
 │   │   ├── __init__.py
 │   │   ├── routes.py               System, hardware, fan, power endpoints
-│   │   ├── auth.py                 JWT authentication
+│   │   ├── auth.py                 JWT + TOTP 2FA authentication
 │   │   ├── websocket.py            Real-time metrics WebSocket
 │   │   ├── alerts.py               Alert rules CRUD and notifications
 │   │   ├── history.py              SQLite metrics query endpoints
 │   │   ├── systemd.py              Systemd service management
 │   │   ├── camera.py               CSI/USB camera auto-detection + MJPEG stream
 │   │   ├── ros2.py                 ROS2 node/topic monitor
-│   │   └── backup.py               Backup and restore
+│   │   ├── backup.py               Backup and restore
+│   │   └── scheduler.py            Task scheduler — cron-like job management
 │   ├── collectors/
 │   │   ├── __init__.py
 │   │   ├── hardware_detector.py    Jetson model, JetPack, CUDA detection
@@ -177,6 +179,7 @@ jetson-dashboard/
 │       │   ├── CameraPage.jsx
 │       │   ├── Ros2Page.jsx
 │       │   ├── BackupPage.jsx
+│       │   ├── SchedulerPage.jsx
 │       │   ├── SettingsPage.jsx
 │       │   └── LoginPage.jsx
 │       ├── components/
@@ -201,10 +204,11 @@ jetson-dashboard/
 │   └── entrypoint.sh               SSL cert auto-generation on first boot
 │
 ├── data/                           Persisted data (mounted as volume, gitignored)
-│   ├── settings.json
+│   ├── settings.json               Dashboard settings + TOTP 2FA secret
 │   ├── alerts_config.json
 │   ├── alerts_history.json
 │   ├── metrics.db
+│   ├── scheduler.json              Scheduled tasks configuration
 │   └── ssl/
 │       └── jetson-dashboard.crt    Auto-generated SSL certificate
 │
@@ -296,11 +300,38 @@ Alerts support two notification channels:
 
 ---
 
+## Task Scheduler
+
+The scheduler lets you run commands on the Jetson host automatically on a recurring schedule.
+
+### Available schedules
+
+Every minute, 5m, 15m, 30m, 1h, 6h, 12h, daily, weekly.
+
+### Preset tasks
+
+| Preset | Schedule | Command |
+|---|---|---|
+| System cleanup | Weekly | `sudo systemctl reset-failed` |
+| Docker cleanup | Weekly | `docker system prune -f` |
+| Check disk space | Daily | `df -h / \| tail -1` |
+| Sync system clock | Daily | `sudo chronyc makestep` |
+
+### Features
+
+- Enable/disable tasks without deleting them
+- Run any task immediately with **Run Now**
+- Last 10 execution results stored per task with full output
+- Visual indicators for overdue and failed tasks
+- Tasks stored in `data/scheduler.json`
+
+---
+
 ## Backup and Restore
 
 Create a full backup from Dashboard → Backup → Download Backup ZIP.
 
-The backup contains: `settings.json`, `alerts_config.json`, `alerts_history.json`, `metrics.db`, and SSL certificates.
+The backup contains: `settings.json`, `alerts_config.json`, `alerts_history.json`, `metrics.db`, `scheduler.json` and SSL certificates.
 
 To restore, upload the ZIP in Dashboard → Backup → Restore. Before restoring, a safety backup is automatically created in `data/pre_restore_*.zip`.
 

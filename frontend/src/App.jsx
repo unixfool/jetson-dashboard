@@ -17,6 +17,7 @@ import SystemdPage   from './pages/SystemdPage'
 import CameraPage    from './pages/CameraPage'
 import Ros2Page      from './pages/Ros2Page'
 import BackupPage    from './pages/BackupPage'
+import SchedulerPage from './pages/SchedulerPage'
 
 export default function App() {
   const { initWebSocket, fetchHardwareInfo } = useMetricsStore()
@@ -66,6 +67,7 @@ export default function App() {
         <Route path="camera"    element={<CameraPage />} />
         <Route path="ros2"      element={<Ros2Page />} />
         <Route path="backup"    element={<BackupPage />} />
+        <Route path="scheduler" element={<SchedulerPage />} />
         <Route path="settings"   element={<SettingsPage />} />
       </Route>
     </Routes>

@@ -19,6 +19,7 @@ from api.systemd   import router as systemd_router
 from api.camera    import router as camera_router
 from api.ros2      import router as ros2_router
 from api.backup    import router as backup_router
+from api.scheduler import router as scheduler_router, get_scheduler
 from services.metrics_broadcaster import MetricsBroadcaster
 from services.alert_manager import AlertManager
 from services.metrics_db    import MetricsDB
@@ -57,6 +58,11 @@ async def lifespan(app: FastAPI):
     broadcaster.set_alert_manager(alert_manager)
     logger.info("🔔 Alert manager ready")
 
+    # Task scheduler
+    scheduler = get_scheduler()
+    scheduler.start()
+    app.state.scheduler = scheduler
+
     app.state.hardware_info  = hw_info
     app.state.broadcaster    = broadcaster
     app.state.alert_manager  = alert_manager
@@ -69,6 +75,7 @@ async def lifespan(app: FastAPI):
     yield
 
     logger.info("🛑 Shutting down")
+    get_scheduler().stop()
     broadcast_task.cancel()
     cleanup_task.cancel()
     try:
@@ -97,6 +104,7 @@ app.include_router(systemd_router,  prefix="/api",          dependencies=[Depend
 app.include_router(camera_router,   prefix="/api",          dependencies=[Depends(require_auth)])
 app.include_router(ros2_router,     prefix="/api",          dependencies=[Depends(require_auth)])
 app.include_router(backup_router,   prefix="/api",          dependencies=[Depends(require_auth)])
+app.include_router(scheduler_router, prefix="/api",         dependencies=[Depends(require_auth)])
 app.include_router(ws_router)
 
 
