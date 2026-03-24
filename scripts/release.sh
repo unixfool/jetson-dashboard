@@ -442,7 +442,7 @@ fi
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${BOLD}${GREEN}╔══════════════════════════════════════════╗${RESET}"
-echo -e "${BOLD}${GREEN}║   RELEASE v$NEW_VERSION COMPLETE!           ║${RESET}"
+echo -e "${BOLD}${GREEN}║   RELEASE v$NEW_VERSION COMPLETE!        ║${RESET}"
 echo -e "${BOLD}${GREEN}╚══════════════════════════════════════════╝${RESET}"
 echo ""
 

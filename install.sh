@@ -327,6 +327,7 @@ cmd_install() {
 ╚█████╔╝███████╗   ██║   ███████║╚██████╔╝██║ ╚████║
  ╚════╝ ╚══════╝   ╚═╝   ╚══════╝ ╚═════╝ ╚═╝  ╚═══╝
             D A S H B O A R D   I N S T A L L E R
+                  --- Created by: y2k ---
 BANNER
     echo -e "${NC}"
 
@@ -397,7 +398,7 @@ show_success() {
     echo -e "${GREEN}║${NC}                                              ${GREEN}║${NC}"
     echo -e "${GREEN}║${NC}  Access (HTTPS):                             ${GREEN}║${NC}"
     echo -e "${GREEN}║${NC}    Local:    https://localhost:$HTTPS_PORT          ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}    Network:  https://$ip:$HTTPS_PORT   ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}    Network:  https://$ip:$HTTPS_PORT      ${GREEN}║${NC}"
     echo -e "${GREEN}║${NC}                                              ${GREEN}║${NC}"
     echo -e "${GREEN}║${NC}  Accept the self-signed certificate warning  ${GREEN}║${NC}"
     echo -e "${GREEN}║${NC}  in your browser on first access.            ${GREEN}║${NC}"
