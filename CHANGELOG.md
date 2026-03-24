@@ -4,12 +4,18 @@ All notable changes to Jetson Dashboard are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com).
 
 
-## [v1.1.0] — 2026-03-19
+## [v1.2.0] — 2026-03-24
 
 ### ✨ New Features
+- feat: add task scheduler (backend, frontend and docs)
+
+### 📝 Other Changes
+- Update
+
+
+## [v1.1.0] — 2026-03-19
+### ✨ New Features
 - feat: add TOTP two-factor authentication (2FA)
-
-
 ## [v1.0.6] — 2026-03-16
 ### 📝 Other Changes
 - Update index.html: replace fixed IP with <JETSON_IP> and add one-line install
