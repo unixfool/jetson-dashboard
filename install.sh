@@ -270,6 +270,132 @@ fix_perms() {
     fi
 }
 
+
+setup_camera_scripts() {
+    log_step "Setting up camera scripts"
+
+    # Detect PYTHONPATH for numpy/cv2 — search user home directories
+    PYPATH=""
+    for user_home in /home/*/; do
+        user=$(basename "$user_home")
+        for pyver in python3.12 python3.11 python3.10; do
+            candidate="${user_home}.local/lib/${pyver}/site-packages"
+            if [[ -d "$candidate" ]] && /usr/bin/python3 -c "
+import sys; sys.path.insert(0,'$candidate')
+try:
+    import numpy, cv2
+    sys.exit(0)
+except:
+    sys.exit(1)
+" 2>/dev/null; then
+                PYPATH="$candidate"
+                break 2
+            fi
+        done
+    done
+
+    # System fallback
+    if [[ -z "$PYPATH" ]]; then
+        for path in /usr/local/lib/python3.12/dist-packages /usr/lib/python3/dist-packages; do
+            if [[ -d "$path" ]]; then
+                PYPATH="$path"
+                break
+            fi
+        done
+    fi
+
+    # Detect Python binary
+    PYBIN="/usr/bin/python3.12"
+    [[ -x "$PYBIN" ]] || PYBIN="/usr/bin/python3"
+
+    # Detect jetson-capture.py location
+    JCAPTURE="/usr/local/bin/jetson-capture.py"
+
+    # Create jetson-cam-start.sh — uses fast stream script
+    sudo tee /usr/local/bin/jetson-cam-start.sh > /dev/null << SCRIPT
+#!/bin/bash
+# Jetson Dashboard — Camera capture helper (created by install.sh)
+OUTPUT="\${1:-/tmp/jetson_dashboard_frame.jpg}"
+EXPOSURE="\${2:-50000}"
+export PYTHONPATH="${PYPATH}"
+exec ${PYBIN} /usr/local/bin/jetson-stream-capture.py "\$OUTPUT" "\$EXPOSURE"
+SCRIPT
+    sudo chmod +x /usr/local/bin/jetson-cam-start.sh
+
+    # Create jetson-cam-stop.sh
+    sudo tee /usr/local/bin/jetson-cam-stop.sh > /dev/null << SCRIPT
+#!/bin/bash
+# Jetson Dashboard — Camera stop helper (created by install.sh)
+pkill -TERM -f 'jetson-capture' 2>/dev/null || true
+pkill -TERM -f 'v4l2-ctl' 2>/dev/null || true
+sleep 0.5
+pkill -KILL -f 'jetson-capture' 2>/dev/null || true
+pkill -KILL -f 'v4l2-ctl' 2>/dev/null || true
+rm -f /tmp/jetson_dashboard_frame.jpg /tmp/jetson_raw.bin 2>/dev/null || true
+exit 0
+SCRIPT
+    sudo chmod +x /usr/local/bin/jetson-cam-stop.sh
+
+    # Create jetson-stream-capture.py — fast stream capture (640x480, ~1.1s/frame)
+    sudo tee /usr/local/bin/jetson-stream-capture.py > /dev/null << SCRIPT
+#!/usr/bin/env python3
+"""Jetson IMX219 stream capture — optimizado para Jetson Dashboard"""
+import sys, subprocess, numpy as np, cv2, os
+
+OUTPUT   = sys.argv[1] if len(sys.argv) > 1 else "/tmp/jetson_dashboard_frame.jpg"
+EXPOSURE = int(sys.argv[2]) if len(sys.argv) > 2 else 50000
+RAW_TMP  = "/tmp/jetson_stream_raw.bin"
+WIDTH, HEIGHT = 3264, 2464
+OUT_W, OUT_H  = 640, 480
+
+subprocess.run(
+    ["v4l2-ctl", "--device=/dev/video0", f"--set-ctrl=exposure={EXPOSURE}"],
+    capture_output=True
+)
+
+r = subprocess.run([
+    "v4l2-ctl", "--device=/dev/video0",
+    f"--set-fmt-video=width={WIDTH},height={HEIGHT},pixelformat=RG10",
+    "--stream-mmap", "--stream-count=1", f"--stream-to={RAW_TMP}"
+], capture_output=True)
+
+if r.returncode != 0 or not os.path.exists(RAW_TMP) or os.path.getsize(RAW_TMP) == 0:
+    sys.exit(1)
+
+raw = np.fromfile(RAW_TMP, dtype=np.uint16)
+os.remove(RAW_TMP)
+if len(raw) < WIDTH * HEIGHT:
+    sys.exit(1)
+
+frame  = raw[:WIDTH * HEIGHT].reshape(HEIGHT, WIDTH)
+frame8 = cv2.normalize(frame, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+bgr    = cv2.cvtColor(frame8, cv2.COLOR_BayerBG2BGR_EA)
+
+h, w  = bgr.shape[:2]
+zone  = bgr[h//4:h//2, w//3:2*w//3]
+ref   = float(zone[:,:,1].mean())
+b, g, r_ch = cv2.split(bgr.astype(np.float32))
+b   = np.clip(b    * (ref / (float(zone[:,:,0].mean()) + 1e-6)), 0, 255)
+r_ch = np.clip(r_ch * (ref / (float(zone[:,:,2].mean()) + 1e-6)), 0, 255)
+result = cv2.merge([b, g, r_ch]).astype(np.uint8)
+
+lab        = cv2.cvtColor(result, cv2.COLOR_BGR2LAB)
+lab[:,:,0] = cv2.createCLAHE(clipLimit=1.5, tileGridSize=(8,8)).apply(lab[:,:,0])
+result     = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+result     = cv2.resize(result, (OUT_W, OUT_H), interpolation=cv2.INTER_AREA)
+
+cv2.imwrite(OUTPUT, result, [cv2.IMWRITE_JPEG_QUALITY, 80])
+SCRIPT
+    sudo chmod +x /usr/local/bin/jetson-stream-capture.py
+
+    if [[ -f "$JCAPTURE" ]]; then
+        log_success "Camera scripts installed (python: $PYBIN, pythonpath: ${PYPATH:-system})"
+    else
+        log_warn "jetson-capture.py not found at $JCAPTURE — CSI camera will not work"
+        log_warn "USB cameras will still be auto-detected and work"
+    fi
+}
+
 build_images() {
     log_step "Building Docker images"
     log_info "This may take 10–30 minutes on first build..."
@@ -341,6 +467,7 @@ BANNER
     setup_repo
     setup_env
     fix_perms
+    setup_camera_scripts
     build_images
     start_services
     wait_ready
@@ -354,6 +481,7 @@ cmd_update() {
     log_info "Pulling latest changes..."
     git pull origin main 2>/dev/null || git pull origin master
     log_info "Rebuilding..."
+    setup_camera_scripts
     docker compose down
     docker compose build
     docker compose up -d
@@ -368,6 +496,7 @@ cmd_uninstall() {
     log_info "Stopping services..."
     docker compose down --volumes --remove-orphans 2>/dev/null || true
     docker rmi jetson-dashboard-frontend:latest jetson-dashboard-backend:latest 2>/dev/null || true
+    sudo rm -f /usr/local/bin/jetson-cam-start.sh /usr/local/bin/jetson-cam-stop.sh 2>/dev/null || true
     read -rp "  Remove data directory ($REPO_DIR/data)? [y/N] " ans
     [[ "$ans" =~ ^[Yy]$ ]] && { sudo rm -rf "$REPO_DIR/data"; log_info "Data removed"; }
     read -rp "  Remove installation directory ($REPO_DIR)? [y/N] " ans

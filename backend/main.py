@@ -20,6 +20,7 @@ from api.camera    import router as camera_router
 from api.ros2      import router as ros2_router
 from api.backup    import router as backup_router
 from api.scheduler import router as scheduler_router, get_scheduler
+from api.battery   import router as battery_router, get_battery_monitor
 from services.metrics_broadcaster import MetricsBroadcaster
 from services.alert_manager import AlertManager
 from services.metrics_db    import MetricsDB
@@ -63,6 +64,11 @@ async def lifespan(app: FastAPI):
     scheduler.start()
     app.state.scheduler = scheduler
 
+    # Battery monitor
+    battery = get_battery_monitor()
+    battery.start()
+    app.state.battery = battery
+
     app.state.hardware_info  = hw_info
     app.state.broadcaster    = broadcaster
     app.state.alert_manager  = alert_manager
@@ -76,6 +82,7 @@ async def lifespan(app: FastAPI):
 
     logger.info("🛑 Shutting down")
     get_scheduler().stop()
+    get_battery_monitor().stop()
     broadcast_task.cancel()
     cleanup_task.cancel()
     try:
@@ -105,6 +112,7 @@ app.include_router(camera_router,   prefix="/api",          dependencies=[Depend
 app.include_router(ros2_router,     prefix="/api",          dependencies=[Depends(require_auth)])
 app.include_router(backup_router,   prefix="/api",          dependencies=[Depends(require_auth)])
 app.include_router(scheduler_router, prefix="/api",         dependencies=[Depends(require_auth)])
+app.include_router(battery_router,   prefix="/api",         dependencies=[Depends(require_auth)])
 app.include_router(ws_router)
 
 

@@ -28,11 +28,13 @@ services:
       - PYTHONDONTWRITEBYTECODE=1
 
     privileged: true
+    pid: host
 
     devices:
       - /dev/video0:/dev/video0
 
     volumes:
+      - /home/jetbot:/home/jetbot
       - /proc:/proc:ro
       - /sys:/sys
       - /etc:/etc:ro
@@ -98,4 +100,3 @@ services:
       options:
         max-size: "5m"
         max-file: "2"
-        

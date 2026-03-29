@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Cpu, Zap, MemoryStick, HardDrive,
   Network, Thermometer, Activity, Container, FileText, Shield,
   Settings, Wifi, WifiOff, ChevronLeft, ChevronRight,
-  Server, LogOut, Bell, TrendingUp, Camera, Sun, Moon, CalendarClock
+  Server, LogOut, Bell, TrendingUp, Camera, Sun, Moon, CalendarClock, BatteryFull
 } from 'lucide-react'
 import { useState } from 'react'
 import { useMetricsStore } from '../../store/metricsStore'
@@ -68,6 +68,7 @@ const NAV_ITEMS = [
   { path: '/ros2',       icon: Activity,        label: 'ROS2' },
   { path: '/backup',     icon: Shield,          label: 'Backup' },
   { path: '/scheduler',  icon: CalendarClock,   label: 'Scheduler' },
+  { path: '/battery',    icon: BatteryFull,     label: 'Battery' },
   { path: '/settings',   icon: Settings,        label: 'Settings' },
 ]
 

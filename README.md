@@ -30,6 +30,7 @@ A full-stack web monitoring and management system for NVIDIA Jetson devices. Bui
 | **Task Scheduler** | Schedule commands on the Jetson host — presets, history, run now |
 | **Dark / Light mode** | Theme toggle, persisted in browser |
 | **JWT authentication** | Optional login, Bearer tokens, 24h TTL |
+| **Battery Monitor** | INA219 voltage, current and power — charging detection, history graph, Low/Critical alerts |
 | **Two-Factor Authentication** | TOTP 2FA via Google Authenticator or any TOTP app |
 
 ---
@@ -132,6 +133,7 @@ jetson-dashboard/
 │   │   ├── alerts.py               Alert rules CRUD and notifications
 │   │   ├── history.py              SQLite metrics query endpoints
 │   │   ├── systemd.py              Systemd service management
+│   │   ├── battery.py              INA219 battery monitor — voltage, current, charging detection
 │   │   ├── camera.py               CSI/USB camera auto-detection + MJPEG stream
 │   │   ├── ros2.py                 ROS2 node/topic monitor
 │   │   ├── backup.py               Backup and restore
@@ -236,17 +238,54 @@ jetson-dashboard/
 
 The dashboard auto-detects the connected camera type on first stream start by querying `v4l2-ctl --list-formats`. No manual configuration is needed.
 
-| Camera type | Format | Pipeline |
-|---|---|---|
-| IMX219 CSI | RAW10 Bayer (RG10) | RAW capture → debayering → JPEG |
-| USB — with hardware encoder | MJPEG native | Direct JPEG from camera |
-| USB — basic webcam | YUYV 4:2:2 | YUV → RGB conversion → JPEG |
+| Camera type | Format | Pipeline | Output |
+|---|---|---|---|
+| IMX219 CSI | RAW10 Bayer (RG10) | RAW 3264×2464 → debayer → resize | 640×480 JPEG |
+| USB — hardware encoder | MJPEG native | Direct JPEG from camera | 1280×720 JPEG |
+| USB — basic webcam | YUYV 4:2:2 | YUV → RGB conversion → JPEG | 1280×720 JPEG |
 
-**IMX219 notes:** `nvargus-daemon` is not required. The pipeline uses `v4l2-ctl` for RAW10 Bayer capture and debayers in software with numpy + Pillow.
+**IMX219 notes:** `nvargus-daemon` is not required. The pipeline uses `v4l2-ctl` for RAW10 Bayer capture at native 3264×2464 resolution, then debayers and resizes to 640×480 in software using OpenCV + numpy. The `install.sh` automatically creates the required capture helper scripts (`jetson-cam-start.sh`, `jetson-cam-stop.sh`) with the correct Python environment for any Jetson installation.
+
+**Stream rate:** ~1 frame every 2 seconds — limited by the IMX219 RAW capture pipeline on this hardware.
 
 **USB notes:** If your USB camera is on `/dev/video1` instead of `/dev/video0`, update `CAMERA_DEVICE` in `backend/api/camera.py`.
 
-The camera stream auto-starts when the Camera page is opened and auto-stops 10 seconds after the last client disconnects to free CPU resources.
+The camera stream auto-starts when the Camera page is opened and auto-stops 15 seconds after the last client disconnects to free CPU resources.
+
+### Camera helper scripts
+
+The installer creates two helper scripts on the host automatically:
+
+| Script | Location | Purpose |
+|---|---|---|
+| `jetson-cam-start.sh` | `/usr/local/bin/` | Launches capture with correct PYTHONPATH |
+| `jetson-cam-stop.sh` | `/usr/local/bin/` | Kills all camera processes cleanly |
+
+These scripts are created by `install.sh` and removed by `./install.sh uninstall`. No manual setup needed.
+
+---
+
+## Battery Monitor
+
+The dashboard monitors the INA219 power sensor (I2C address `0x41`) on WaveShare JetBot and compatible boards.
+
+| Measurement | Description |
+|---|---|
+| Bus voltage | Battery pack voltage (V) |
+| Current | Charge/discharge current (mA) |
+| Power | Power consumption (mW) |
+| State | Full / Good / Low / Critical based on voltage |
+
+**Charging detection:** The INA219 shunt resistor is only in the charge path on WaveShare JetBot. Current and power readings are only shown when the charger is connected (shunt voltage > 0.01mV and current > 50mA). On battery only, voltage is shown accurately but current displays as `—`.
+
+**Voltage reference:**
+
+| Voltage | State |
+|---|---|
+| 12.4 – 12.6V | Full |
+| 11.5 – 12.4V | Good |
+| 10.5 – 11.5V | Low |
+| < 10.5V | Critical |
 
 ---
 
