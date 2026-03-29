@@ -4,15 +4,17 @@ All notable changes to Jetson Dashboard are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com).
 
 
-## [v1.2.0] — 2026-03-24
+## [v1.3.0] — 2026-03-29
 
 ### ✨ New Features
-- feat: add task scheduler (backend, frontend and docs)
+- feat: add battery monitor + fix camera stream pipeline
 
+
+## [v1.2.0] — 2026-03-24
+### ✨ New Features
+- feat: add task scheduler (backend, frontend and docs)
 ### 📝 Other Changes
 - Update
-
-
 ## [v1.1.0] — 2026-03-19
 ### ✨ New Features
 - feat: add TOTP two-factor authentication (2FA)
