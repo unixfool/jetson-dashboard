@@ -31,6 +31,7 @@ A full-stack web monitoring and management system for NVIDIA Jetson devices. Bui
 | **Dark / Light mode** | Theme toggle, persisted in browser |
 | **JWT authentication** | Optional login, Bearer tokens, 24h TTL |
 | **Battery Monitor** | INA219 voltage, current and power — charging detection, history graph, Low/Critical alerts |
+| **Motor Control** | WaveShare JetBot motor control via PCA9685 + TB6612FNG — virtual joystick, WASD, patterns, sequences, precision sliders |
 | **Two-Factor Authentication** | TOTP 2FA via Google Authenticator or any TOTP app |
 
 ---
@@ -137,7 +138,8 @@ jetson-dashboard/
 │   │   ├── camera.py               CSI/USB camera auto-detection + MJPEG stream
 │   │   ├── ros2.py                 ROS2 node/topic monitor
 │   │   ├── backup.py               Backup and restore
-│   │   └── scheduler.py            Task scheduler — cron-like job management
+│   │   ├── scheduler.py            Task scheduler — cron-like job management
+│   │   └── motor.py                Motor control — PCA9685 REST endpoints
 │   ├── collectors/
 │   │   ├── __init__.py
 │   │   ├── hardware_detector.py    Jetson model, JetPack, CUDA detection
@@ -152,7 +154,8 @@ jetson-dashboard/
 │       ├── metrics_db.py           SQLite 1s/1m/1h aggregation
 │       ├── docker_manager.py       Docker SDK wrapper
 │       ├── process_manager.py      psutil + nsenter host kill
-│       └── hardware_control.py     Fan, nvpmodel, jetson_clocks
+│       ├── hardware_control.py     Fan, nvpmodel, jetson_clocks
+│       └── motor_controller.py     PCA9685 motor control via adafruit-motorkit
 │
 ├── frontend/                       React + Vite + Tailwind
 │   ├── index.html
@@ -182,6 +185,7 @@ jetson-dashboard/
 │       │   ├── Ros2Page.jsx
 │       │   ├── BackupPage.jsx
 │       │   ├── SchedulerPage.jsx
+│       │   ├── MotorPage.jsx
 │       │   ├── SettingsPage.jsx
 │       │   └── LoginPage.jsx
 │       ├── components/
@@ -286,6 +290,26 @@ The dashboard monitors the INA219 power sensor (I2C address `0x41`) on WaveShare
 | 11.5 – 12.4V | Good |
 | 10.5 – 11.5V | Low |
 | < 10.5V | Critical |
+
+---
+
+## Motor Control
+
+The dashboard provides full motor control for WaveShare JetBot via the PCA9685 Motor Driver HAT (I2C address `0x60`) and TB6612FNG dual H-bridge.
+
+**Hardware:** PCA9685 PWM controller + TB6612FNG — motor1 = LEFT wheel, motor2 = RIGHT wheel
+
+**Requirements:** `adafruit-circuitpython-motorkit` (installed automatically via `requirements.txt`). Blinka must detect the Jetson board — confirmed working on Jetson Nano with Ubuntu 24.04.
+
+**Docker:** `/dev/i2c-0` and `/dev/i2c-1` must be mounted in the backend container (included in `docker-compose.yml`).
+
+| Control mode | Description |
+|---|---|
+| Virtual Joystick | Drag to steer — touch and mouse friendly |
+| WASD / Arrow keys | Keyboard control with speed slider |
+| Patterns | 8 predefined movements: Square, Zigzag, Spin, Figure-8, Circle, Triangle, Bounce |
+| Sequence builder | Custom multi-step sequences with per-step speed and duration |
+| Precision sliders | Independent left/right wheel control with fine adjustment |
 
 ---
 

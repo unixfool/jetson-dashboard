@@ -19,6 +19,7 @@ import Ros2Page      from './pages/Ros2Page'
 import BackupPage    from './pages/BackupPage'
 import SchedulerPage from './pages/SchedulerPage'
 import BatteryPage   from './pages/BatteryPage'
+import MotorPage     from './pages/MotorPage'
 
 export default function App() {
   const { initWebSocket, fetchHardwareInfo } = useMetricsStore()
@@ -64,12 +65,13 @@ export default function App() {
         <Route path="logs"       element={<LogsPage />} />
         <Route path="alerts"     element={<AlertsPage />} />
         <Route path="history"    element={<HistoryPage />} />
-        <Route path="systemd"   element={<SystemdPage />} />
-        <Route path="camera"    element={<CameraPage />} />
-        <Route path="ros2"      element={<Ros2Page />} />
-        <Route path="backup"    element={<BackupPage />} />
-        <Route path="scheduler" element={<SchedulerPage />} />
-        <Route path="battery"   element={<BatteryPage />} />
+        <Route path="systemd"    element={<SystemdPage />} />
+        <Route path="camera"     element={<CameraPage />} />
+        <Route path="ros2"       element={<Ros2Page />} />
+        <Route path="backup"     element={<BackupPage />} />
+        <Route path="scheduler"  element={<SchedulerPage />} />
+        <Route path="battery"    element={<BatteryPage />} />
+        <Route path="motor"      element={<MotorPage />} />
         <Route path="settings"   element={<SettingsPage />} />
       </Route>
     </Routes>

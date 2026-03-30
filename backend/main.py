@@ -1,5 +1,5 @@
 """
-Jetson Dashboard - Backend Main Entry Point v1.2
+Jetson Dashboard - Backend Main Entry Point v1.3
 """
 import asyncio
 import logging
@@ -21,9 +21,11 @@ from api.ros2      import router as ros2_router
 from api.backup    import router as backup_router
 from api.scheduler import router as scheduler_router, get_scheduler
 from api.battery   import router as battery_router, get_battery_monitor
+from api.motor     import router as motor_router
 from services.metrics_broadcaster import MetricsBroadcaster
 from services.alert_manager import AlertManager
 from services.metrics_db    import MetricsDB
+from services.motor_controller import get_motor_controller
 from collectors.hardware_detector import HardwareDetector
 
 logging.basicConfig(
@@ -37,7 +39,7 @@ broadcaster = MetricsBroadcaster()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("🚀 Starting Jetson Dashboard Backend v1.2")
+    logger.info("🚀 Starting Jetson Dashboard Backend v1.3")
 
     auth_enabled = os.environ.get("AUTH_ENABLED", "false").lower() == "true"
     logger.info(f"{'🔒' if auth_enabled else '🔓'} Auth {'ENABLED' if auth_enabled else 'DISABLED'}")
@@ -69,6 +71,14 @@ async def lifespan(app: FastAPI):
     battery.start()
     app.state.battery = battery
 
+    # Motor controller — initialize at startup (graceful if not available)
+    motor = get_motor_controller()
+    app.state.motor = motor
+    if motor.is_available():
+        logger.info("🤖 Motor controller ready — PCA9685 detected at 0x60")
+    else:
+        logger.warning("⚠️  Motor controller unavailable — no PCA9685 detected (non-JetBot hardware)")
+
     app.state.hardware_info  = hw_info
     app.state.broadcaster    = broadcaster
     app.state.alert_manager  = alert_manager
@@ -83,6 +93,7 @@ async def lifespan(app: FastAPI):
     logger.info("🛑 Shutting down")
     get_scheduler().stop()
     get_battery_monitor().stop()
+    get_motor_controller().cleanup()
     broadcast_task.cancel()
     cleanup_task.cancel()
     try:
@@ -94,7 +105,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Jetson Dashboard API",
     description="Real-time monitoring and management for NVIDIA Jetson devices",
-    version="1.2.0",
+    version="1.3.0",
     lifespan=lifespan,
 )
 
@@ -103,23 +114,24 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Routers
-app.include_router(auth_router,    prefix="/api/auth")
-app.include_router(api_router,     prefix="/api",          dependencies=[Depends(require_auth)])
-app.include_router(alerts_router,  prefix="/api/alerts",   dependencies=[Depends(require_auth)])
-app.include_router(history_router, prefix="/api/history",  dependencies=[Depends(require_auth)])
-app.include_router(systemd_router,  prefix="/api",          dependencies=[Depends(require_auth)])
-app.include_router(camera_router,   prefix="/api",          dependencies=[Depends(require_auth)])
-app.include_router(ros2_router,     prefix="/api",          dependencies=[Depends(require_auth)])
-app.include_router(backup_router,   prefix="/api",          dependencies=[Depends(require_auth)])
-app.include_router(scheduler_router, prefix="/api",         dependencies=[Depends(require_auth)])
-app.include_router(battery_router,   prefix="/api",         dependencies=[Depends(require_auth)])
+app.include_router(auth_router,      prefix="/api/auth")
+app.include_router(api_router,       prefix="/api",          dependencies=[Depends(require_auth)])
+app.include_router(alerts_router,    prefix="/api/alerts",   dependencies=[Depends(require_auth)])
+app.include_router(history_router,   prefix="/api/history",  dependencies=[Depends(require_auth)])
+app.include_router(systemd_router,   prefix="/api",          dependencies=[Depends(require_auth)])
+app.include_router(camera_router,    prefix="/api",          dependencies=[Depends(require_auth)])
+app.include_router(ros2_router,      prefix="/api",          dependencies=[Depends(require_auth)])
+app.include_router(backup_router,    prefix="/api",          dependencies=[Depends(require_auth)])
+app.include_router(scheduler_router, prefix="/api",          dependencies=[Depends(require_auth)])
+app.include_router(battery_router,   prefix="/api",          dependencies=[Depends(require_auth)])
+app.include_router(motor_router,     prefix="/api",          dependencies=[Depends(require_auth)])
 app.include_router(ws_router)
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "1.2.0"}
+    return {"status": "ok", "version": "1.3.0"}
 
 @app.get("/")
 async def root():
-    return {"message": "Jetson Dashboard API", "version": "1.2.0"}
+    return {"message": "Jetson Dashboard API", "version": "1.3.0"}

@@ -13,6 +13,7 @@ adafruit-blinka==8.69.0
 adafruit-circuitpython-ina219==3.5.0
 adafruit-circuitpython-busdevice==5.2.15
 adafruit-circuitpython-register==1.11.1
+adafruit-circuitpython-motorkit==1.6.20
 Jetson.GPIO==2.1.12
 smbus2==0.6.0
 opencv-python-headless==4.9.0.80

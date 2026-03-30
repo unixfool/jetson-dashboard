@@ -1,8 +1,6 @@
 # Jetson Dashboard - Docker Compose Deployment
 # Optimized for NVIDIA Jetson ARM64 devices
-
 services:
-
   # Backend API + WebSocket Server
   backend:
     build:
@@ -11,7 +9,6 @@ services:
     image: jetson-dashboard-backend:latest
     container_name: jetson-dashboard-backend
     restart: unless-stopped
-
     environment:
       - JETSON_MODEL=${JETSON_MODEL:-}
       - JETPACK_VERSION=${JETPACK_VERSION:-}
@@ -26,13 +23,12 @@ services:
       - METRICS_INTERVAL=${METRICS_INTERVAL:-1.5}
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
-
     privileged: true
     pid: host
-
     devices:
       - /dev/video0:/dev/video0
-
+      - /dev/i2c-0:/dev/i2c-0
+      - /dev/i2c-1:/dev/i2c-1
     volumes:
       - /home/jetbot:/home/jetbot
       - /proc:/proc:ro
@@ -49,22 +45,18 @@ services:
       - /usr/local/bin/opencv_version:/usr/local/bin/opencv_version:ro
       - /usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/tegra:ro
       - ./data:/app/data
-
     network_mode: host
-
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 15s
-
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-
   # Frontend Web Server
   frontend:
     build:
@@ -73,28 +65,20 @@ services:
     image: jetson-dashboard-frontend:latest
     container_name: jetson-dashboard-frontend
     restart: unless-stopped
-
     environment:
-      # IP del Jetson para el certificado SSL (SAN)
       - JETSON_IP=${JETSON_IP:-192.168.1.138}
-
     volumes:
-      # Persistir certificado SSL entre rebuilds
       - ./data/ssl:/etc/nginx/ssl
-
     network_mode: host
-
     depends_on:
       backend:
         condition: service_healthy
-
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "--no-check-certificate", "https://127.0.0.1:8443/health"]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 30s
-
     logging:
       driver: "json-file"
       options:
