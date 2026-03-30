@@ -83,8 +83,12 @@ function SchedulerCard() {
   const [tasks, setTasks] = useState(null)
   useEffect(() => {
     const load = async () => {
-      try { const r = await apiFetch('/scheduler/tasks'); setTasks(Array.isArray(r) ? r : []) }
-      catch { setTasks([]) }
+      try {
+        const r = await apiFetch('/scheduler/tasks')
+        // API returns { tasks: [...] } or plain array
+        const arr = Array.isArray(r) ? r : (Array.isArray(r?.tasks) ? r.tasks : [])
+        setTasks(arr)
+      } catch { setTasks([]) }
     }
     load()
     const iv = setInterval(load, 10000)
@@ -97,7 +101,9 @@ function SchedulerCard() {
 
   const formatNext = (ts) => {
     if (!ts) return '—'
-    const diff = ts * 1000 - Date.now()
+    // Handle both ISO string and unix timestamp
+    const ms = typeof ts === 'string' ? new Date(ts).getTime() : ts * 1000
+    const diff = ms - Date.now()
     if (diff < 0) return 'overdue'
     const mins = Math.round(diff / 60000)
     if (mins < 60) return `${mins}m`
@@ -126,7 +132,8 @@ function SchedulerCard() {
             {safeTasks.slice(0, 5).map(task => {
               const ok     = task.last_run?.exit_code === 0
               const hasRun = task.last_run != null
-              const overdue= task.next_run && task.next_run * 1000 < Date.now() && task.enabled
+              const nextMs = task.next_run ? (typeof task.next_run === 'string' ? new Date(task.next_run).getTime() : task.next_run * 1000) : null
+            const overdue = nextMs && nextMs < Date.now() && task.enabled
               return (
                 <div key={task.id} className="flex items-center gap-2 rounded px-2 py-1.5"
                   style={{background:'var(--color-surface)'}}>
