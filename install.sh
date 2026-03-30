@@ -280,7 +280,9 @@ setup_camera_scripts() {
         user=$(basename "$user_home")
         for pyver in python3.12 python3.11 python3.10; do
             candidate="${user_home}.local/lib/${pyver}/site-packages"
-            if [[ -d "$candidate" ]] && /usr/bin/python3 -c "
+            pybin_ver="/usr/bin/${pyver}"
+            [[ -x "$pybin_ver" ]] || pybin_ver="/usr/bin/python3"
+            if [[ -d "$candidate" ]] && "$pybin_ver" -c "
 import sys; sys.path.insert(0,'$candidate')
 try:
     import numpy, cv2
@@ -289,6 +291,7 @@ except:
     sys.exit(1)
 " 2>/dev/null; then
                 PYPATH="$candidate"
+                PYBIN="$pybin_ver"
                 break 2
             fi
         done
@@ -304,9 +307,11 @@ except:
         done
     fi
 
-    # Detect Python binary
-    PYBIN="/usr/bin/python3.12"
-    [[ -x "$PYBIN" ]] || PYBIN="/usr/bin/python3"
+    # Detect Python binary — use the one found with PYTHONPATH, or fallback
+    if [[ -z "${PYBIN:-}" ]]; then
+        PYBIN="/usr/bin/python3.12"
+        [[ -x "$PYBIN" ]] || PYBIN="/usr/bin/python3"
+    fi
 
     # Detect jetson-capture.py location
     JCAPTURE="/usr/local/bin/jetson-capture.py"
