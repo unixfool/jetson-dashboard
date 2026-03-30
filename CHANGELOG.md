@@ -4,15 +4,17 @@ All notable changes to Jetson Dashboard are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com).
 
 
-## [v1.4.0] — 2026-03-30
+## [v1.4.1] — 2026-03-30
 
+### 🐛 Bug Fixes
+- fix: scheduler card — handle {tasks:[]} API response and ISO date strings
+
+
+## [v1.4.0] — 2026-03-30
 ### ✨ New Features
 - feat: Motor Control page — PCA9685+TB6612FNG via adafruit-motorkit
-
 ### 🔧 Chores
 - chore: bump package.json to v1.3.0
-
-
 ## [v1.3.0] — 2026-03-29
 ### ✨ New Features
 - feat: add battery monitor + fix camera stream pipeline
