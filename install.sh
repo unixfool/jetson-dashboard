@@ -271,6 +271,101 @@ fix_perms() {
 }
 
 
+
+setup_i2c_devices() {
+    log_step "Detecting I2C buses"
+
+    # Find all available I2C buses
+    local i2c_devices=()
+    for dev in /dev/i2c-*; do
+        [[ -e "$dev" ]] && i2c_devices+=("$dev")
+    done
+
+    if [[ ${#i2c_devices[@]} -eq 0 ]]; then
+        log_warn "No I2C buses found — Battery and Motor Control will not detect hardware"
+        return 0
+    fi
+
+    log_success "Found ${#i2c_devices[@]} I2C bus(es): ${i2c_devices[*]}"
+
+    # Scan each bus for known Jetson Dashboard devices
+    local found_devices=()
+    local device_names=()
+    for dev in "${i2c_devices[@]}"; do
+        local bus_num="${dev##*-}"
+        # Quick scan using python3 (no i2c-tools needed)
+        local found
+        found=$(python3 -c "
+import smbus2, sys
+try:
+    bus = smbus2.SMBus(${bus_num})
+    hits = []
+    addrs = {0x3C:'OLED SSD1306', 0x41:'INA219 Battery', 0x60:'PCA9685 Motor HAT', 0x70:'PCA9685 all-call'}
+    for addr, name in addrs.items():
+        try:
+            bus.read_byte(addr)
+            hits.append(f'{name} @ 0x{addr:02X}')
+        except:
+            pass
+    bus.close()
+    print(','.join(hits))
+except:
+    pass
+" 2>/dev/null || true)
+        if [[ -n "$found" ]]; then
+            log_info "  $dev → $found"
+        else
+            log_info "  $dev → no known devices"
+        fi
+        found_devices+=("$dev")
+    done
+
+    # Patch docker-compose.yml with detected I2C devices
+    local compose_file="$REPO_DIR/docker-compose.yml"
+    if [[ ! -f "$compose_file" ]]; then
+        log_warn "docker-compose.yml not found at $compose_file — skipping I2C patch"
+        return 0
+    fi
+
+    # Build the devices block for docker-compose
+    # Remove existing i2c entries first, then add detected ones
+    local tmp_compose; tmp_compose=$(mktemp)
+
+    python3 - "$compose_file" "${found_devices[@]}" << 'PYEOF'
+import sys, re
+
+compose_file = sys.argv[1]
+i2c_devs = sys.argv[2:]
+
+with open(compose_file, 'r') as f:
+    content = f.read()
+
+# Remove existing i2c device lines
+content = re.sub(r'      - /dev/i2c-\d+:/dev/i2c-\d+
+', '', content)
+
+# Build new i2c device lines
+i2c_lines = ''.join(f'      - {d}:{d}
+' for d in sorted(set(i2c_devs)))
+
+# Insert after /dev/video0 line
+content = re.sub(
+    r'(      - /dev/video0:/dev/video0
+)',
+    r'' + i2c_lines,
+    content
+)
+
+with open(compose_file, 'w') as f:
+    f.write(content)
+
+print(f"docker-compose.yml updated with {len(i2c_devs)} I2C device(s)")
+PYEOF
+
+    log_success "docker-compose.yml patched with I2C devices"
+    log_info "  Devices mounted: ${found_devices[*]}"
+}
+
 setup_camera_scripts() {
     log_step "Setting up camera scripts"
 
@@ -280,9 +375,7 @@ setup_camera_scripts() {
         user=$(basename "$user_home")
         for pyver in python3.12 python3.11 python3.10; do
             candidate="${user_home}.local/lib/${pyver}/site-packages"
-            pybin_ver="/usr/bin/${pyver}"
-            [[ -x "$pybin_ver" ]] || pybin_ver="/usr/bin/python3"
-            if [[ -d "$candidate" ]] && "$pybin_ver" -c "
+            if [[ -d "$candidate" ]] && /usr/bin/python3 -c "
 import sys; sys.path.insert(0,'$candidate')
 try:
     import numpy, cv2
@@ -291,7 +384,6 @@ except:
     sys.exit(1)
 " 2>/dev/null; then
                 PYPATH="$candidate"
-                PYBIN="$pybin_ver"
                 break 2
             fi
         done
@@ -307,11 +399,9 @@ except:
         done
     fi
 
-    # Detect Python binary — use the one found with PYTHONPATH, or fallback
-    if [[ -z "${PYBIN:-}" ]]; then
-        PYBIN="/usr/bin/python3.12"
-        [[ -x "$PYBIN" ]] || PYBIN="/usr/bin/python3"
-    fi
+    # Detect Python binary
+    PYBIN="/usr/bin/python3.12"
+    [[ -x "$PYBIN" ]] || PYBIN="/usr/bin/python3"
 
     # Detect jetson-capture.py location
     JCAPTURE="/usr/local/bin/jetson-capture.py"
@@ -472,6 +562,7 @@ BANNER
     setup_repo
     setup_env
     fix_perms
+    setup_i2c_devices
     setup_camera_scripts
     build_images
     start_services
@@ -486,6 +577,7 @@ cmd_update() {
     log_info "Pulling latest changes..."
     git pull origin main 2>/dev/null || git pull origin master
     log_info "Rebuilding..."
+    setup_i2c_devices
     setup_camera_scripts
     docker compose down
     docker compose build
