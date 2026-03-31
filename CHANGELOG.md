@@ -4,12 +4,15 @@ All notable changes to Jetson Dashboard are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com).
 
 
-## [v1.4.2] — 2026-03-30
+## [v1.4.3] — 2026-03-31
 
+### ✨ New Features
+- feat: auto-detect I2C buses and patch docker-compose on install/update
+
+
+## [v1.4.2] — 2026-03-30
 ### 🐛 Bug Fixes
 - fix: camera — detect correct Python binary per version in setup_camera_scripts
-
-
 ## [v1.4.1] — 2026-03-30
 ### 🐛 Bug Fixes
 - fix: scheduler card — handle {tasks:[]} API response and ISO date strings
