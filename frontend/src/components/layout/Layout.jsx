@@ -4,7 +4,7 @@ import {
   Network, Thermometer, Activity, Container, FileText, Shield,
   Settings, Wifi, WifiOff, ChevronLeft, ChevronRight, ChevronDown,
   Server, LogOut, Bell, TrendingUp, Camera, Sun, Moon,
-  CalendarClock, BatteryFull, Bot
+  CalendarClock, BatteryFull, Bot, BrainCircuit
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useMetricsStore } from '../../store/metricsStore'
@@ -54,7 +54,8 @@ const NAV_GROUPS = [
     items: [
       { path: '/camera', icon: Camera,   label: 'Camera'        },
       { path: '/motor',  icon: Bot,      label: 'Motor Control' },
-      { path: '/ros2',   icon: Activity, label: 'ROS2'          },
+      { path: '/ros2',   icon: Activity,     label: 'ROS2'          },
+      { path: '/ml',     icon: BrainCircuit, label: 'ML Workspace'   },
     ],
   },
   {

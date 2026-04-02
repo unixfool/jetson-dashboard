@@ -753,14 +753,14 @@
   <!-- HERO -->
   <section class="hero">
     <div class="hero-badge">
-      <span id="version-badge">v1.0.0 — Open Source</span>
+      <span id="version-badge">v1.4.0 — Open Source</span>
     </div>
     <h1 class="hero-title">
       <span class="line1">Monitor Your</span>
       <span class="line2">Jetson Device</span>
     </h1>
     <p class="hero-sub">
-      Full-stack web dashboard for NVIDIA Jetson. Real-time metrics, camera streaming, ROS2 monitoring, Docker management and more — all in one place.
+      Full-stack web dashboard for NVIDIA Jetson. Real-time metrics, camera streaming, ML workspace, ROS2 monitoring, motor control and more — all in one place.
     </p>
     <div class="hero-actions">
       <a href="https://github.com/unixfool/jetson-dashboard" class="btn-primary" target="_blank">
@@ -800,7 +800,7 @@
     <div class="section-inner" style="padding-top:0; padding-bottom:4rem;">
       <div class="stats-bar reveal">
         <div class="stat-item">
-          <span class="stat-value">17</span>
+          <span class="stat-value">18</span>
           <span class="stat-label">Pages & Features</span>
         </div>
         <div class="stat-item">
@@ -932,6 +932,12 @@
           <div class="feature-desc">Full JetBot motor control via PCA9685 + TB6612FNG. Virtual joystick, WASD keyboard, 8 movement patterns (square, zigzag, figure-8…), custom sequence builder, and independent precision sliders per wheel.</div>
         </div>
 
+        <div class="feature-card">
+          <div class="feature-icon" style="background:rgba(167,139,250,0.15)">🧠</div>
+          <div class="feature-title">ML Workspace</div>
+          <div class="feature-desc">Run Python ML scripts in the jetson-ai container. Train scikit-learn models, run MobileNetSSD object detection (202ms/frame), analyze data with pandas and matplotlib. Job history, model browser and live camera detection.</div>
+        </div>
+
       </div>
     </div>
   </section>
@@ -976,6 +982,7 @@
           <div class="arch-item"><div class="arch-dot" style="background:var(--green)"></div>nsenter host access</div>
           <div class="arch-item"><div class="arch-dot" style="background:var(--green)"></div>Docker SDK</div>
           <div class="arch-item"><div class="arch-dot" style="background:var(--green)"></div>adafruit-motorkit</div>
+          <div class="arch-item"><div class="arch-dot" style="background:var(--green)"></div>ML runner (jetson-ai)</div>
           <div class="arch-item"><div class="arch-dot" style="background:var(--green)"></div>Port 8000 (internal)</div>
         </div>
       </div>

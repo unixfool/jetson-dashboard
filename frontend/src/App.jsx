@@ -20,6 +20,7 @@ import BackupPage    from './pages/BackupPage'
 import SchedulerPage from './pages/SchedulerPage'
 import BatteryPage   from './pages/BatteryPage'
 import MotorPage     from './pages/MotorPage'
+import MLPage        from './pages/MLPage'
 
 export default function App() {
   const { initWebSocket, fetchHardwareInfo } = useMetricsStore()
@@ -72,6 +73,7 @@ export default function App() {
         <Route path="scheduler"  element={<SchedulerPage />} />
         <Route path="battery"    element={<BatteryPage />} />
         <Route path="motor"      element={<MotorPage />} />
+        <Route path="ml"         element={<MLPage />} />
         <Route path="settings"   element={<SettingsPage />} />
       </Route>
     </Routes>

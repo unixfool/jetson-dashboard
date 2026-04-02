@@ -33,6 +33,7 @@ A full-stack web monitoring and management system for NVIDIA Jetson devices. Bui
 | **Battery Monitor** | INA219 voltage, current and power — charging detection, history graph, Low/Critical alerts |
 | **Motor Control** | WaveShare JetBot motor control via PCA9685 + TB6612FNG — virtual joystick, WASD, patterns, sequences, precision sliders |
 | **Two-Factor Authentication** | TOTP 2FA via Google Authenticator or any TOTP app |
+| **ML Workspace** | Run Python ML scripts in the jetson-ai container — train models, object detection with MobileNetSSD, data analysis, live camera detection, job history |
 
 ---
 
@@ -44,6 +45,7 @@ A full-stack web monitoring and management system for NVIDIA Jetson devices. Bui
 | JetPack 4.x / 5.x / 6.x | Or Ubuntu 22/24 with L4T kernel |
 | Docker + Docker Compose | `docker compose` v2 required |
 | Camera (optional) | IMX219 CSI or any USB UVC camera on `/dev/video0` |
+| jetson-ai image (optional) | Required for ML Workspace — build from `~/jetson-docker/` |
 
 ---
 
@@ -139,7 +141,8 @@ jetson-dashboard/
 │   │   ├── ros2.py                 ROS2 node/topic monitor
 │   │   ├── backup.py               Backup and restore
 │   │   ├── scheduler.py            Task scheduler — cron-like job management
-│   │   └── motor.py                Motor control — PCA9685 REST endpoints
+│   │   ├── motor.py                Motor control — PCA9685 REST endpoints
+│   │   └── ml.py                   ML Workspace — job submission, model/dataset browser
 │   ├── collectors/
 │   │   ├── __init__.py
 │   │   ├── hardware_detector.py    Jetson model, JetPack, CUDA detection
@@ -155,7 +158,8 @@ jetson-dashboard/
 │       ├── docker_manager.py       Docker SDK wrapper
 │       ├── process_manager.py      psutil + nsenter host kill
 │       ├── hardware_control.py     Fan, nvpmodel, jetson_clocks
-│       └── motor_controller.py     PCA9685 motor control via adafruit-motorkit
+│       ├── motor_controller.py     PCA9685 motor control via adafruit-motorkit
+│       └── ml_runner.py            ML job runner — executes scripts in jetson-ai container
 │
 ├── frontend/                       React + Vite + Tailwind
 │   ├── index.html
@@ -186,6 +190,7 @@ jetson-dashboard/
 │       │   ├── BackupPage.jsx
 │       │   ├── SchedulerPage.jsx
 │       │   ├── MotorPage.jsx
+│       │   ├── MLPage.jsx
 │       │   ├── SettingsPage.jsx
 │       │   └── LoginPage.jsx
 │       ├── components/
@@ -209,11 +214,16 @@ jetson-dashboard/
 │   ├── nginx_map.conf              WebSocket upgrade map (http-level directive)
 │   └── entrypoint.sh               SSL cert auto-generation on first boot
 │
+├── ml_templates/                   ML example scripts (versioned, not gitignored)
+│   └── camera_detection.py         Live IMX219 + MobileNetSSD detection
+│
 ├── data/                           Persisted data (mounted as volume, gitignored)
 │   ├── settings.json               Dashboard settings + TOTP 2FA secret
 │   ├── alerts_config.json
 │   ├── alerts_history.json
 │   ├── metrics.db
+│   ├── ml_jobs.db                  ML job history (SQLite)
+│   ├── ml_scripts/                 ML job scripts directory
 │   ├── scheduler.json              Scheduled tasks configuration
 │   └── ssl/
 │       └── jetson-dashboard.crt    Auto-generated SSL certificate
@@ -269,6 +279,25 @@ These scripts are created by `install.sh` and removed by `./install.sh uninstall
 
 ---
 
+## I2C Auto-Detection
+
+The `install.sh` script automatically detects all available I2C buses and configures `docker-compose.yml`:
+
+- Scans all `/dev/i2c-*` buses without requiring `i2c-tools`
+- Identifies known devices: INA219 `0x41`, PCA9685 `0x60`, SSD1306 `0x3C`
+- Patches `docker-compose.yml` with all detected buses
+- Runs on both `install` and `update` commands
+
+This ensures compatibility across Jetson Nano, Xavier and Orin without manual configuration.
+
+| JetPack | Typical I2C buses |
+|---|---|
+| Nano 4.x | `/dev/i2c-0`, `/dev/i2c-1` |
+| Xavier NX / AGX 5.x | `/dev/i2c-1`, `/dev/i2c-7`, `/dev/i2c-8` |
+| Orin 6.x | `/dev/i2c-1`, `/dev/i2c-2` |
+
+---
+
 ## Battery Monitor
 
 The dashboard monitors the INA219 power sensor (I2C address `0x41`) on WaveShare JetBot and compatible boards.
@@ -310,6 +339,50 @@ The dashboard provides full motor control for WaveShare JetBot via the PCA9685 M
 | Patterns | 8 predefined movements: Square, Zigzag, Spin, Figure-8, Circle, Triangle, Bounce |
 | Sequence builder | Custom multi-step sequences with per-step speed and duration |
 | Precision sliders | Independent left/right wheel control with fine adjustment |
+
+---
+
+## ML Workspace
+
+The ML Workspace runs Python scripts inside the `jetson-ai` Docker container with access to GPU devices, the camera, and `~/jetson-workspace`.
+
+**Requirements:** The `jetson-ai:latest` Docker image must be built on the Jetson:
+
+```bash
+cd ~/jetson-docker && docker build -t jetson-ai:latest .
+```
+
+**Available libraries:** Python 3.12, OpenCV 4.13, NumPy, scikit-learn, pandas, matplotlib
+
+**Built-in examples:**
+
+| Example | Description | Output |
+|---|---|---|
+| System Check | Verify Python, libraries and GPU devices | Log output |
+| Train Classifier | Random Forest on digits dataset | `models/digits_classifier.pkl` |
+| Object Detection | MobileNetSSD inference via OpenCV DNN | Log with detections |
+| Data Analysis | pandas statistics + matplotlib charts | `projects/sensor_analysis.png` |
+| Live Camera Detection | Capture IMX219 frame + MobileNetSSD | `projects/camera_detection.jpg` |
+
+**Workspace layout (accessible inside scripts at `/workspace/`):**
+
+```
+~/jetson-workspace/
+├── models/     # Trained models — accessible at /workspace/models/
+├── datasets/   # Training datasets
+├── projects/   # Output files, charts, results
+└── scripts/    # Temporary job scripts — auto-cleaned after each job
+```
+
+**MobileNetSSD models** — download once to the Jetson:
+
+```bash
+wget -O ~/jetson-workspace/models/MobileNetSSD_deploy.prototxt \
+  "https://raw.githubusercontent.com/PINTO0309/MobileNet-SSD-RealSense/master/caffemodel/MobileNetSSD/MobileNetSSD_deploy.prototxt"
+
+wget -O ~/jetson-workspace/models/MobileNetSSD_deploy.caffemodel \
+  "https://github.com/PINTO0309/MobileNet-SSD-RealSense/raw/master/caffemodel/MobileNetSSD/MobileNetSSD_deploy.caffemodel"
+```
 
 ---
 

@@ -22,10 +22,12 @@ from api.backup    import router as backup_router
 from api.scheduler import router as scheduler_router, get_scheduler
 from api.battery   import router as battery_router, get_battery_monitor
 from api.motor     import router as motor_router
+from api.ml        import router as ml_router
 from services.metrics_broadcaster import MetricsBroadcaster
 from services.alert_manager import AlertManager
 from services.metrics_db    import MetricsDB
 from services.motor_controller import get_motor_controller
+from services.ml_runner import get_ml_runner
 from collectors.hardware_detector import HardwareDetector
 
 logging.basicConfig(
@@ -79,6 +81,14 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("⚠️  Motor controller unavailable — no PCA9685 detected (non-JetBot hardware)")
 
+    # ML runner
+    ml = get_ml_runner()
+    app.state.ml = ml
+    if ml.is_available():
+        logger.info("🧠 ML runner ready — jetson-ai:latest image found")
+    else:
+        logger.warning(f"⚠️  ML runner unavailable: {ml.get_status().get('error', 'unknown')}")
+
     app.state.hardware_info  = hw_info
     app.state.broadcaster    = broadcaster
     app.state.alert_manager  = alert_manager
@@ -105,7 +115,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Jetson Dashboard API",
     description="Real-time monitoring and management for NVIDIA Jetson devices",
-    version="1.3.0",
+    version="1.4.0",
     lifespan=lifespan,
 )
 
@@ -125,13 +135,14 @@ app.include_router(backup_router,    prefix="/api",          dependencies=[Depen
 app.include_router(scheduler_router, prefix="/api",          dependencies=[Depends(require_auth)])
 app.include_router(battery_router,   prefix="/api",          dependencies=[Depends(require_auth)])
 app.include_router(motor_router,     prefix="/api",          dependencies=[Depends(require_auth)])
+app.include_router(ml_router,        prefix="/api",          dependencies=[Depends(require_auth)])
 app.include_router(ws_router)
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "1.3.0"}
+    return {"status": "ok", "version": "1.4.0"}
 
 @app.get("/")
 async def root():
-    return {"message": "Jetson Dashboard API", "version": "1.3.0"}
+    return {"message": "Jetson Dashboard API", "version": "1.4.0"}
