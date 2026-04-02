@@ -4,12 +4,15 @@ All notable changes to Jetson Dashboard are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com).
 
 
-## [v1.5.1] — 2026-04-02
+## [v1.5.2] — 2026-04-02
 
+### 🐛 Bug Fixes
+- fix: install.sh — fix I2C regex syntax error in Python heredoc
+
+
+## [v1.5.1] — 2026-04-02
 ### ✨ New Features
 - feat: install.sh — setup_ml_workspace() auto-setup
-
-
 ## [v1.5.0] — 2026-04-02
 ### ✨ New Features
 - feat: ML Workspace — jetson-ai container integration
