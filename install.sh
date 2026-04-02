@@ -341,18 +341,15 @@ with open(compose_file, 'r') as f:
     content = f.read()
 
 # Remove existing i2c device lines
-content = re.sub(r'      - /dev/i2c-\d+:/dev/i2c-\d+
-', '', content)
+content = re.sub(r'      - /dev/i2c-[0-9]+:/dev/i2c-[0-9]+\n', '', content)
 
 # Build new i2c device lines
-i2c_lines = ''.join(f'      - {d}:{d}
-' for d in sorted(set(i2c_devs)))
+i2c_lines = ''.join(f'      - {d}:{d}\n' for d in sorted(set(i2c_devs)))
 
 # Insert after /dev/video0 line
 content = re.sub(
-    r'(      - /dev/video0:/dev/video0
-)',
-    r'' + i2c_lines,
+    r'(      - /dev/video0:/dev/video0\n)',
+    r'\1' + i2c_lines,
     content
 )
 
@@ -495,18 +492,15 @@ SCRIPT
 setup_ml_workspace() {
     log_step "Setting up ML Workspace"
 
-    # Detect home directory of current user
     local user_home; user_home=$(eval echo "~$(whoami)")
     local workspace="${user_home}/jetson-workspace"
 
-    # Create workspace directories
     mkdir -p "${workspace}/models"
     mkdir -p "${workspace}/datasets"
     mkdir -p "${workspace}/projects"
     mkdir -p "${workspace}/scripts"
     log_success "Workspace created at ${workspace}"
 
-    # Check if jetson-ai image exists
     if docker image inspect jetson-ai:latest &>/dev/null; then
         log_success "jetson-ai:latest image found — ML Workspace ready"
     else
@@ -515,27 +509,21 @@ setup_ml_workspace() {
         log_warn "  cd ~/jetson-docker && docker build -t jetson-ai:latest ."
     fi
 
-    # Download MobileNetSSD models if not present and internet available
     local proto="${workspace}/models/MobileNetSSD_deploy.prototxt"
     local weights="${workspace}/models/MobileNetSSD_deploy.caffemodel"
+    local base="https://raw.githubusercontent.com/PINTO0309/MobileNet-SSD-RealSense/master/caffemodel/MobileNetSSD"
 
     if [[ ! -f "$weights" ]]; then
         log_info "MobileNetSSD models not found — attempting download..."
-        local base="https://raw.githubusercontent.com/PINTO0309/MobileNet-SSD-RealSense/master/caffemodel/MobileNetSSD"
         if curl -s --max-time 5 https://github.com &>/dev/null; then
-            if curl -fsSL --max-time 30                 "${base}/MobileNetSSD_deploy.prototxt"                 -o "$proto" 2>/dev/null &&                curl -fsSL --max-time 120                 "https://github.com/PINTO0309/MobileNet-SSD-RealSense/raw/master/caffemodel/MobileNetSSD/MobileNetSSD_deploy.caffemodel"                 -o "$weights" 2>/dev/null; then
+            if curl -fsSL --max-time 30 "${base}/MobileNetSSD_deploy.prototxt" -o "$proto" 2>/dev/null &&                curl -fsSL --max-time 120 "https://github.com/PINTO0309/MobileNet-SSD-RealSense/raw/master/caffemodel/MobileNetSSD/MobileNetSSD_deploy.caffemodel" -o "$weights" 2>/dev/null; then
                 log_success "MobileNetSSD models downloaded to ${workspace}/models/"
             else
-                log_warn "MobileNetSSD download failed — download manually:"
-                log_warn "  wget -O ${proto} ${base}/MobileNetSSD_deploy.prototxt"
-                log_warn "  wget -O ${weights} ${base}/MobileNetSSD_deploy.caffemodel"
-                # Remove partial downloads
+                log_warn "MobileNetSSD download failed — download manually after install"
                 rm -f "$proto" "$weights" 2>/dev/null || true
             fi
         else
             log_warn "No internet — skipping MobileNetSSD download"
-            log_warn "Download manually after install:"
-            log_warn "  wget -O ${proto} ${base}/MobileNetSSD_deploy.prototxt"
         fi
     else
         log_success "MobileNetSSD models already present"
