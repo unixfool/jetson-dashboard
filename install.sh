@@ -491,6 +491,57 @@ SCRIPT
     fi
 }
 
+
+setup_ml_workspace() {
+    log_step "Setting up ML Workspace"
+
+    # Detect home directory of current user
+    local user_home; user_home=$(eval echo "~$(whoami)")
+    local workspace="${user_home}/jetson-workspace"
+
+    # Create workspace directories
+    mkdir -p "${workspace}/models"
+    mkdir -p "${workspace}/datasets"
+    mkdir -p "${workspace}/projects"
+    mkdir -p "${workspace}/scripts"
+    log_success "Workspace created at ${workspace}"
+
+    # Check if jetson-ai image exists
+    if docker image inspect jetson-ai:latest &>/dev/null; then
+        log_success "jetson-ai:latest image found — ML Workspace ready"
+    else
+        log_warn "jetson-ai:latest image not found — ML Workspace will show UNAVAILABLE"
+        log_warn "To enable ML Workspace, build the image:"
+        log_warn "  cd ~/jetson-docker && docker build -t jetson-ai:latest ."
+    fi
+
+    # Download MobileNetSSD models if not present and internet available
+    local proto="${workspace}/models/MobileNetSSD_deploy.prototxt"
+    local weights="${workspace}/models/MobileNetSSD_deploy.caffemodel"
+
+    if [[ ! -f "$weights" ]]; then
+        log_info "MobileNetSSD models not found — attempting download..."
+        local base="https://raw.githubusercontent.com/PINTO0309/MobileNet-SSD-RealSense/master/caffemodel/MobileNetSSD"
+        if curl -s --max-time 5 https://github.com &>/dev/null; then
+            if curl -fsSL --max-time 30                 "${base}/MobileNetSSD_deploy.prototxt"                 -o "$proto" 2>/dev/null &&                curl -fsSL --max-time 120                 "https://github.com/PINTO0309/MobileNet-SSD-RealSense/raw/master/caffemodel/MobileNetSSD/MobileNetSSD_deploy.caffemodel"                 -o "$weights" 2>/dev/null; then
+                log_success "MobileNetSSD models downloaded to ${workspace}/models/"
+            else
+                log_warn "MobileNetSSD download failed — download manually:"
+                log_warn "  wget -O ${proto} ${base}/MobileNetSSD_deploy.prototxt"
+                log_warn "  wget -O ${weights} ${base}/MobileNetSSD_deploy.caffemodel"
+                # Remove partial downloads
+                rm -f "$proto" "$weights" 2>/dev/null || true
+            fi
+        else
+            log_warn "No internet — skipping MobileNetSSD download"
+            log_warn "Download manually after install:"
+            log_warn "  wget -O ${proto} ${base}/MobileNetSSD_deploy.prototxt"
+        fi
+    else
+        log_success "MobileNetSSD models already present"
+    fi
+}
+
 build_images() {
     log_step "Building Docker images"
     log_info "This may take 10–30 minutes on first build..."
@@ -564,6 +615,7 @@ BANNER
     fix_perms
     setup_i2c_devices
     setup_camera_scripts
+    setup_ml_workspace
     build_images
     start_services
     wait_ready
@@ -579,6 +631,7 @@ cmd_update() {
     log_info "Rebuilding..."
     setup_i2c_devices
     setup_camera_scripts
+    setup_ml_workspace
     docker compose down
     docker compose build
     docker compose up -d
